@@ -11,7 +11,7 @@ import (
 
 type Snapshotter struct{}
 
-func (v *Snapshotter) CreateSnapshot(drive string, timeout int, force bool) (*Snapshot, error) {
+func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int, force bool) (*Snapshot, error) {
 	successful := false
 
 	if timeout < 180 {
@@ -31,7 +31,7 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, force bool) (*Sn
 		return nil, err
 	}
 
-	if err := vssBackupComponent.SetBackupState(false, false, VSS_BT_COPY, false); err != nil {
+	if err := vssBackupComponent.SetBackupState(false, bootable, VSS_BT_COPY, false); err != nil {
 		return nil, err
 	}
 
