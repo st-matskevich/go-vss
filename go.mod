@@ -1,4 +1,4 @@
-module github.com/jeromehadorn/vss
+module github.com/st-matskevich/go-vss
 
 go 1.17
 
