@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package vss
@@ -202,8 +203,19 @@ func (vss *IVssBackupComponents) SetContext(context VssContext) error {
 }
 
 // The SetBackupState method defines an overall configuration for a backup operation.
-func (vss *IVssBackupComponents) SetBackupState(state VssBackup) error {
-	code, _, _ := syscall.Syscall6(vss.getVTable().setBackupState, 4, uintptr(unsafe.Pointer(vss)), 0, 0, uintptr(state), 0, 0)
+func (vss *IVssBackupComponents) SetBackupState(selectComponents bool, backupBootableState bool, state VssBackup, partialFileSupport bool) error {
+	var bSelectComponents, bBackupBootableState, bPartialFileSupport uint32
+	if selectComponents {
+		bSelectComponents = 1
+	}
+	if backupBootableState {
+		bBackupBootableState = 1
+	}
+	if partialFileSupport {
+		bPartialFileSupport = 1
+	}
+
+	code, _, _ := syscall.Syscall6(vss.getVTable().setBackupState, 4, uintptr(unsafe.Pointer(vss)), uintptr(bSelectComponents), uintptr(bBackupBootableState), uintptr(state), uintptr(bPartialFileSupport), 0)
 	return CreateVSSError("IVssBackupComponents.SetBackupState", code)
 }
 

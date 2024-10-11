@@ -31,7 +31,7 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, force bool) (*Sn
 		return nil, err
 	}
 
-	if err := vssBackupComponent.SetBackupState(VSS_BT_COPY); err != nil {
+	if err := vssBackupComponent.SetBackupState(false, false, VSS_BT_COPY, false); err != nil {
 		return nil, err
 	}
 
