@@ -159,6 +159,7 @@ func (vss *IVssBackupComponents) GatherWriterMetadata() (*IVssAsync, error) {
 	}
 }
 
+// The BackupComplete method causes VSS to generate a BackupComplete event, which signals writers that the backup process has completed.
 func (vss *IVssBackupComponents) BackupComplete() (*IVssAsync, error) {
 	var unknown *ole.IUnknown
 	code, _, _ := syscall.Syscall(vss.getVTable().backupComplete, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&unknown)), 0)

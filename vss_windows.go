@@ -46,6 +46,7 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 
 	var async *IVssAsync
 
+	// TODO: GatherWriterMetadata should request check writers status and fail execution if any writer is in a failed state
 	if async, err = v.components.GatherWriterMetadata(); err != nil {
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata, err: %s", err)
 	} else if async == nil {
@@ -146,6 +147,7 @@ func (v *Snapshotter) Release() error {
 
 	async.Release()
 
+	// TODO: GatherWriterMetadata should request check writers status and fail execution if any writer is in a failed state
 	if async, err = v.components.GatherWriterMetadata(); err != nil {
 		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata, err: %s", err)
 	} else if async == nil {
