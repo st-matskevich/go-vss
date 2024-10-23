@@ -147,15 +147,15 @@ func (v *Snapshotter) Release() error {
 
 	async.Release()
 
-	// TODO: GatherWriterMetadata should request check writers status and fail execution if any writer is in a failed state
-	if async, err = v.components.GatherWriterMetadata(); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata, err: %s", err)
+	// TODO: GatherWriterStatus should request check writers status and fail execution if any writer is in a failed state
+	if async, err = v.components.GatherWriterStatus(); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus, err: %s", err)
 	} else if async == nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata failed to return a valid IVssAsync object")
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus failed to return a valid IVssAsync object")
 	}
 
 	if err = async.Wait(v.timeout); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata didn't finish properly, err: %s", err)
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus didn't finish properly, err: %s", err)
 	}
 
 	async.Release()
