@@ -148,6 +148,8 @@ func (v *Snapshotter) Release() error {
 	async.Release()
 
 	// TODO: GatherWriterStatus should request check writers status and fail execution if any writer is in a failed state
+	// After calling BackupComplete, requesters must call GatherWriterStatus to cause the writer session to be set to a completed state.
+	// This is only necessary on Windows Server 2008 with Service Pack 2 (SP2) and earlier.
 	if async, err = v.components.GatherWriterStatus(); err != nil {
 		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus, err: %s", err)
 	} else if async == nil {
@@ -156,6 +158,19 @@ func (v *Snapshotter) Release() error {
 
 	if err = async.Wait(v.timeout); err != nil {
 		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus didn't finish properly, err: %s", err)
+	}
+
+	async.Release()
+
+	// The caller of GatherWriterStatus should also call FreeWriterStatus after receiving the status of each writer.
+	if async, err = v.components.FreeWriterStatus(); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus, err: %s", err)
+	} else if async == nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus failed to return a valid IVssAsync object")
+	}
+
+	if err = async.Wait(v.timeout); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus didn't finish properly, err: %s", err)
 	}
 
 	async.Release()
