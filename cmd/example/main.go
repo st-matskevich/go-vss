@@ -11,7 +11,6 @@ import (
 var (
 	drive       = flag.String("D", "", "Drive letter to copy (example: C:\\)")
 	symlinkPath = flag.String("S", "", "Path of symlink folder")
-	force       = flag.Bool("f", false, "Creates snapshots if available shadow storage is low. Warning: Replaces older snapshots.")
 	bootable    = flag.Bool("b", false, "Created shapshot can be exported as a bootable volume")
 	timeout     = flag.Int("timeout", 180, "Snapshot creation timeout in seconds (min 180)")
 )
@@ -23,12 +22,13 @@ func main() {
 	validate()
 
 	Snapshotter := vss.Snapshotter{}
-	snapshot, err := Snapshotter.CreateSnapshot(*drive, *bootable, *timeout, *force)
+	snapshot, err := Snapshotter.CreateSnapshot(*drive, *bootable, *timeout)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
+	defer Snapshotter.Release()
 	fmt.Printf("Snapshot created: %s\n", snapshot.Id)
 
 	if symlinkPath != nil {

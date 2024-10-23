@@ -114,10 +114,9 @@ func (guid VSS_GUID) Value() (uintptr, uintptr, uintptr, uintptr) {
 
 type Snapshot struct {
 	Id               string
-	DeviceObjectPath string
-	Details          SnapshotDetails
-	BaseFolder       string
 	Drive            string
+	Details          SnapshotDetails
+	DeviceObjectPath string
 }
 
 func (s Snapshot) Validate() error {
