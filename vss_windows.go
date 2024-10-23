@@ -15,6 +15,10 @@ type Snapshotter struct {
 }
 
 func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (s *Snapshot, rerr error) {
+	if v.components != nil {
+		return nil, fmt.Errorf("snapshotter is already in use")
+	}
+
 	if timeout < 180 {
 		timeout = 180
 	}
@@ -132,6 +136,10 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 }
 
 func (v *Snapshotter) Release() error {
+	if v.components == nil {
+		return nil
+	}
+
 	var async *IVssAsync
 	var err error
 
@@ -175,6 +183,7 @@ func (v *Snapshotter) Release() error {
 
 	async.Release()
 	v.components.Release()
+	v.components = nil
 
 	return nil
 }
