@@ -15,6 +15,10 @@ type Snapshotter struct {
 }
 
 func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (s *Snapshot, rerr error) {
+	if v.components != nil {
+		return nil, fmt.Errorf("snapshotter is already in use")
+	}
+
 	if timeout < 180 {
 		timeout = 180
 	}
@@ -132,6 +136,10 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 }
 
 func (v *Snapshotter) Release() error {
+	if v.components == nil {
+		return nil
+	}
+
 	var async *IVssAsync
 	var err error
 
@@ -147,19 +155,35 @@ func (v *Snapshotter) Release() error {
 
 	async.Release()
 
-	// TODO: GatherWriterMetadata should request check writers status and fail execution if any writer is in a failed state
-	if async, err = v.components.GatherWriterMetadata(); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata, err: %s", err)
+	// TODO: GatherWriterStatus should request check writers status and fail execution if any writer is in a failed state
+	// After calling BackupComplete, requesters must call GatherWriterStatus to cause the writer session to be set to a completed state.
+	// This is only necessary on Windows Server 2008 with Service Pack 2 (SP2) and earlier.
+	if async, err = v.components.GatherWriterStatus(); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus, err: %s", err)
 	} else if async == nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata failed to return a valid IVssAsync object")
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus failed to return a valid IVssAsync object")
 	}
 
 	if err = async.Wait(v.timeout); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata didn't finish properly, err: %s", err)
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus didn't finish properly, err: %s", err)
+	}
+
+	async.Release()
+
+	// The caller of GatherWriterStatus should also call FreeWriterStatus after receiving the status of each writer.
+	if async, err = v.components.FreeWriterStatus(); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus, err: %s", err)
+	} else if async == nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus failed to return a valid IVssAsync object")
+	}
+
+	if err = async.Wait(v.timeout); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus didn't finish properly, err: %s", err)
 	}
 
 	async.Release()
 	v.components.Release()
+	v.components = nil
 
 	return nil
 }
