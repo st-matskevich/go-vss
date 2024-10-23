@@ -144,13 +144,13 @@ func (v *Snapshotter) Release() error {
 	var err error
 
 	if async, err = v.components.BackupComplete(); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: BackupComplete, err: %s", err)
+		return fmt.Errorf("VSS_COMPLETE - Shadow copy creation failed: BackupComplete, err: %s", err)
 	} else if async == nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: BackupComplete failed to return a valid IVssAsync object")
+		return fmt.Errorf("VSS_COMPLETE - Shadow copy creation failed: BackupComplete failed to return a valid IVssAsync object")
 	}
 
 	if err = async.Wait(v.timeout); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: BackupComplete didn't finish properly, err: %s", err)
+		return fmt.Errorf("VSS_COMPLETE - Shadow copy creation failed: BackupComplete didn't finish properly, err: %s", err)
 	}
 
 	async.Release()
@@ -171,17 +171,10 @@ func (v *Snapshotter) Release() error {
 	async.Release()
 
 	// The caller of GatherWriterStatus should also call FreeWriterStatus after receiving the status of each writer.
-	if async, err = v.components.FreeWriterStatus(); err != nil {
+	if err = v.components.FreeWriterStatus(); err != nil {
 		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus, err: %s", err)
-	} else if async == nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus failed to return a valid IVssAsync object")
 	}
 
-	if err = async.Wait(v.timeout); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus didn't finish properly, err: %s", err)
-	}
-
-	async.Release()
 	v.components.Release()
 	v.components = nil
 
