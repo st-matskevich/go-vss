@@ -159,6 +159,22 @@ func (vss *IVssBackupComponents) GatherWriterMetadata() (*IVssAsync, error) {
 	}
 }
 
+// The BackupComplete method causes VSS to generate a BackupComplete event, which signals writers that the backup process has completed.
+func (vss *IVssBackupComponents) BackupComplete() (*IVssAsync, error) {
+	var unknown *ole.IUnknown
+	code, _, _ := syscall.Syscall(vss.getVTable().backupComplete, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&unknown)), 0)
+	if code != 0 {
+		return nil, CreateVSSError("IVssBackupComponents.BackupComplete", code)
+	}
+
+	if comInterface, err := queryInterface(unknown, UIID_IVSS_ASYNC); err != nil {
+		return nil, CreateVSSError("IVssBackupComponents.BackupComplete", code)
+	} else {
+		iVssAsync := (*IVssAsync)(unsafe.Pointer(comInterface))
+		return iVssAsync, CreateVSSError("IVssBackupComponents.BackupComplete", code)
+	}
+}
+
 // The IsVolumeSupported method determines whether the specified provider supports shadow copies on the specified volume or remote file share.
 func (vss *IVssBackupComponents) IsVolumeSupported(drive string) (bool, error) {
 	var isSupported uint32

@@ -9,11 +9,12 @@ import (
 	"github.com/go-ole/go-ole"
 )
 
-type Snapshotter struct{}
+type Snapshotter struct {
+	components *IVssBackupComponents
+	timeout    int
+}
 
-func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int, force bool) (*Snapshot, error) {
-	successful := false
-
+func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (s *Snapshot, rerr error) {
 	if timeout < 180 {
 		timeout = 180
 	}
@@ -26,18 +27,27 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int, f
 		return nil, err
 	}
 
-	if err := vssBackupComponent.SetContext(VSS_CTX_BACKUP); err != nil {
-		vssBackupComponent.Release()
+	v.timeout = timeout
+	v.components = vssBackupComponent
+	defer func() {
+		if rerr != nil {
+			v.components.AbortBackup()
+			v.components.Release()
+		}
+	}()
+
+	if err := v.components.SetContext(VSS_CTX_BACKUP); err != nil {
 		return nil, err
 	}
 
-	if err := vssBackupComponent.SetBackupState(false, bootable, VSS_BT_COPY, false); err != nil {
+	if err := v.components.SetBackupState(false, bootable, VSS_BT_COPY, false); err != nil {
 		return nil, err
 	}
 
 	var async *IVssAsync
 
-	if async, err = vssBackupComponent.GatherWriterMetadata(); err != nil {
+	// TODO: GatherWriterMetadata should request check writers status and fail execution if any writer is in a failed state
+	if async, err = v.components.GatherWriterMetadata(); err != nil {
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata, err: %s", err)
 	} else if async == nil {
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata failed to return a valid IVssAsync object")
@@ -49,58 +59,44 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int, f
 
 	async.Release()
 
-	if isSupported, err := vssBackupComponent.IsVolumeSupported(drive); err != nil {
-		vssBackupComponent.Release()
-		return nil, fmt.Errorf("Snapshots are not supported for drive %s, err: %s", drive, err)
+	if isSupported, err := v.components.IsVolumeSupported(drive); err != nil {
+		return nil, fmt.Errorf("VSS_VOLUME_SUPPORT - snapshots are not supported for drive %s, err: %s", drive, err)
 	} else if !isSupported {
-		vssBackupComponent.Release()
-		return nil, fmt.Errorf("Snapshots are not supported for drive %s, err: %s", drive, err)
+		return nil, fmt.Errorf("VSS_VOLUME_SUPPORT - snapshots are not supported for drive %s, err: %s", drive, err)
 	}
 
 	var snapshotSetID ole.GUID
 	var snapshotID ole.GUID
 
-	if err = vssBackupComponent.StartSnapshotSet(&snapshotSetID); err != nil {
+	if err = v.components.StartSnapshotSet(&snapshotSetID); err != nil {
 		return nil, fmt.Errorf("VSS_START - Shadow copy creation failed: StartSnapshotSet, err %s", err)
 	}
 
-	if err = vssBackupComponent.AddToSnapshotSet(drive, &snapshotID); err != nil {
+	if err = v.components.AddToSnapshotSet(drive, &snapshotID); err != nil {
 		return nil, fmt.Errorf("VSS_ADD - Shadow copy creation failed: AddToSnapshotSet, err: %s", err)
 	}
 
-	if async, err = vssBackupComponent.PrepareForBackup(); err != nil {
-		vssBackupComponent.AbortBackup()
-		vssBackupComponent.Release()
+	if async, err = v.components.PrepareForBackup(); err != nil {
 		return nil, fmt.Errorf("VSS_PREPARE - Shadow copy creation failed: PrepareForBackup returned, err: %s", err)
 	}
 	if async == nil {
-		vssBackupComponent.AbortBackup()
-		vssBackupComponent.Release()
 		return nil, fmt.Errorf("VSS_PREPARE - Shadow copy creation failed: PrepareForBackup failed to return a valid IVssAsync object")
 	}
 
 	if err := async.Wait(timeout); err != nil {
-		vssBackupComponent.AbortBackup()
-		vssBackupComponent.Release()
 		return nil, fmt.Errorf("VSS_PREPARE - Shadow copy creation failed: PrepareForBackup didn't finish properly, err %s", err)
 
 	}
 	async.Release()
 
-	if async, err = vssBackupComponent.DoSnapshotSet(); err != nil {
-		vssBackupComponent.AbortBackup()
-		vssBackupComponent.Release()
+	if async, err = v.components.DoSnapshotSet(); err != nil {
 		return nil, fmt.Errorf("VSS_SNAPSHOT - Shadow copy creation failed: DoSnapshotSet, err: %s", err)
 	}
 	if async == nil {
-		vssBackupComponent.AbortBackup()
-		vssBackupComponent.Release()
 		return nil, fmt.Errorf("VSS_SNAPSHOT - Shadow copy creation failed: DoSnapshotSet failed to return a valid IVssAsync object")
 	}
 
 	if err := async.Wait(timeout); err != nil {
-		vssBackupComponent.AbortBackup()
-		vssBackupComponent.Release()
 		return nil, fmt.Errorf("VSS_SNAPSHOT - Shadow copy creation failed: DoSnapshotSet didn't finish properly, err: %s", err)
 	}
 	async.Release()
@@ -115,57 +111,55 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int, f
 	}
 	details := SnapshotDetails{}
 	details, err = ParseProperties(properties)
-
-	snapshot := Snapshot{
-		Id:      snapshotID.String(),
-		Details: details,
+	if err != nil {
+		return nil, fmt.Errorf("VSS_PROPERTIES - ParseProperties, err: %s", err)
 	}
 
-	// Delete Snapshot if an error occurs
-	defer v.deleteOnFailure(&successful, snapshot.Id)
-
-	deviceObjectPath := snapshot.Details.DeviceObject + `\`
-	snapshot.DeviceObjectPath = deviceObjectPath
+	deviceObjectPath := details.DeviceObject + `\`
+	snapshot := Snapshot{
+		Id:               snapshotID.String(),
+		Details:          details,
+		Drive:            drive,
+		DeviceObjectPath: deviceObjectPath,
+	}
 
 	// Check Snapshot is Complete
 	if err := snapshot.Validate(); err != nil {
 		return nil, err
 	}
 
-	// Cancel sheduled deletion
-	successful = true
-
 	return &snapshot, nil
 }
 
-func (v *Snapshotter) DeleteSnapshot(snapshotId string) error {
-	// Initalize COM Library
-	ole.CoInitialize(0)
-	defer ole.CoUninitialize()
+func (v *Snapshotter) Release() error {
+	var async *IVssAsync
+	var err error
 
-	vssBackupComponent, err := LoadAndInitVSS()
-	if err != nil || vssBackupComponent == nil {
-		return err
+	if async, err = v.components.BackupComplete(); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: BackupComplete, err: %s", err)
+	} else if async == nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: BackupComplete failed to return a valid IVssAsync object")
 	}
 
-	defer vssBackupComponent.Release()
-
-	id := ole.NewGUID(snapshotId)
-
-	if deletedGUID, _, err := vssBackupComponent.DeleteSnapshots(*id); err != nil {
-		vssBackupComponent.AbortBackup()
-		vssBackupComponent.Release()
-		return fmt.Errorf("VSS_DELETE - Failed to delete the shadow copy: %s\n", deletedGUID.String())
+	if err = async.Wait(v.timeout); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: BackupComplete didn't finish properly, err: %s", err)
 	}
+
+	async.Release()
+
+	// TODO: GatherWriterMetadata should request check writers status and fail execution if any writer is in a failed state
+	if async, err = v.components.GatherWriterMetadata(); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata, err: %s", err)
+	} else if async == nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata failed to return a valid IVssAsync object")
+	}
+
+	if err = async.Wait(v.timeout); err != nil {
+		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata didn't finish properly, err: %s", err)
+	}
+
+	async.Release()
+	v.components.Release()
+
 	return nil
-}
-
-func (v *Snapshotter) deleteOnFailure(finished *bool, snapshotId string) {
-	if *finished {
-		return
-	}
-	fmt.Printf("Early deleteing snapshot %s, due to error\n", snapshotId)
-	if err := v.DeleteSnapshot(snapshotId); err != nil {
-		fmt.Printf("error deleting corrupted snapshot %v:\n", err)
-	}
 }
