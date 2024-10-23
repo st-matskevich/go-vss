@@ -176,19 +176,9 @@ func (vss *IVssBackupComponents) GatherWriterStatus() (*IVssAsync, error) {
 }
 
 // The GatherWriterStatus method prompts each writer to send a status message.
-func (vss *IVssBackupComponents) FreeWriterStatus() (*IVssAsync, error) {
-	var unknown *ole.IUnknown
-	code, _, _ := syscall.Syscall(vss.getVTable().freeWriterStatus, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&unknown)), 0)
-	if code != 0 {
-		return nil, CreateVSSError("IVssBackupComponents.FreeWriterStatus", code)
-	}
-
-	if comInterface, err := queryInterface(unknown, UIID_IVSS_ASYNC); err != nil {
-		return nil, CreateVSSError("IVssBackupComponents.FreeWriterStatus", code)
-	} else {
-		iVssAsync := (*IVssAsync)(unsafe.Pointer(comInterface))
-		return iVssAsync, CreateVSSError("IVssBackupComponents.FreeWriterStatus", code)
-	}
+func (vss *IVssBackupComponents) FreeWriterStatus() error {
+	code, _, _ := syscall.Syscall(vss.getVTable().freeWriterStatus, 1, uintptr(unsafe.Pointer(vss)), 0, 0)
+	return CreateVSSError("IVssBackupComponents.FreeWriterStatus", code)
 }
 
 // The BackupComplete method causes VSS to generate a BackupComplete event, which signals writers that the backup process has completed.
