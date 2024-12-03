@@ -40,14 +40,14 @@ func (async *IVssAsync) Wait(miliseconds int) error {
 	return nil
 }
 
-func (async *IVssAsync) QueryStatus() (int32, error) {
+func (async *IVssAsync) QueryStatus() (HRESULT, error) {
 	var status int32
 	code, _, _ := syscall.Syscall(async.getVTable().queryStatus, 3, uintptr(unsafe.Pointer(async)), uintptr(unsafe.Pointer(&status)), 0)
 	if err := CreateVSSError("IVssAsync.QueryStatus", code); err != nil {
 		return 0, err
 	}
 
-	return status, nil
+	return HRESULT(status), nil
 }
 
 func (async *IVssAsync) Cancel() error {

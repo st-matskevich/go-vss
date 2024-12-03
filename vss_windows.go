@@ -32,16 +32,16 @@ func doAsyncOperation(async *IVssAsync, timeout int) error {
 		return err
 	}
 
-	if HRESULT(status) == VSS_S_ASYNC_CANCELLED {
+	if status == VSS_S_ASYNC_CANCELLED {
 		return fmt.Errorf("async operation was cancelled")
 	}
 
-	if HRESULT(status) == VSS_S_ASYNC_PENDING {
+	if status == VSS_S_ASYNC_PENDING {
 		return fmt.Errorf("async operation is pending")
 	}
 
-	if HRESULT(status) != VSS_S_ASYNC_FINISHED {
-		return fmt.Errorf("async operation returned bad status - 0x%x", HRESULT(status))
+	if status != VSS_S_ASYNC_FINISHED {
+		return fmt.Errorf("async operation returned bad status - 0x%x", status)
 	}
 
 	return nil
