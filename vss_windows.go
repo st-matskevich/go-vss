@@ -16,6 +16,37 @@ type Snapshotter struct {
 	timeout    int
 }
 
+func doAsyncOperation(async *IVssAsync, timeout int) error {
+	defer func() {
+		async.Cancel()
+		async.Release()
+	}()
+
+	err := async.Wait(timeout)
+	if err != nil {
+		return err
+	}
+
+	status, err := async.QueryStatus()
+	if err != nil {
+		return err
+	}
+
+	if HRESULT(status) == VSS_S_ASYNC_CANCELLED {
+		return fmt.Errorf("async operation was cancelled")
+	}
+
+	if HRESULT(status) == VSS_S_ASYNC_PENDING {
+		return fmt.Errorf("async operation is pending")
+	}
+
+	if HRESULT(status) != VSS_S_ASYNC_FINISHED {
+		return fmt.Errorf("async operation returned bad status - 0x%x", HRESULT(status))
+	}
+
+	return nil
+}
+
 func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (s *Snapshot, rerr error) {
 	if v.components != nil {
 		return nil, fmt.Errorf("snapshotter is already in use")
@@ -59,11 +90,9 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata failed to return a valid IVssAsync object")
 	}
 
-	if err := async.Wait(timeout); err != nil {
+	if err := doAsyncOperation(async, timeout); err != nil {
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata didn't finish properly, err: %s", err)
 	}
-
-	async.Release()
 
 	if isSupported, err := v.components.IsVolumeSupported(drive); err != nil {
 		return nil, fmt.Errorf("VSS_VOLUME_SUPPORT - snapshots are not supported for drive %s, err: %s", drive, err)
@@ -89,10 +118,9 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 		return nil, fmt.Errorf("VSS_PREPARE - Shadow copy creation failed: PrepareForBackup failed to return a valid IVssAsync object")
 	}
 
-	if err := async.Wait(timeout); err != nil {
+	if err := doAsyncOperation(async, timeout); err != nil {
 		return nil, fmt.Errorf("VSS_PREPARE - Shadow copy creation failed: PrepareForBackup didn't finish properly, err %s", err)
 	}
-	async.Release()
 
 	if async, err = v.components.DoSnapshotSet(); err != nil {
 		return nil, fmt.Errorf("VSS_SNAPSHOT - Shadow copy creation failed: DoSnapshotSet, err: %s", err)
@@ -101,10 +129,9 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 		return nil, fmt.Errorf("VSS_SNAPSHOT - Shadow copy creation failed: DoSnapshotSet failed to return a valid IVssAsync object")
 	}
 
-	if err := async.Wait(timeout); err != nil {
+	if err := doAsyncOperation(async, timeout); err != nil {
 		return nil, fmt.Errorf("VSS_SNAPSHOT - Shadow copy creation failed: DoSnapshotSet didn't finish properly, err: %s", err)
 	}
-	async.Release()
 
 	// Gather Properties
 	properties := VssSnapshotProperties{}
@@ -148,11 +175,9 @@ func (v *Snapshotter) Release() error {
 		return fmt.Errorf("VSS_COMPLETE - Shadow copy creation failed: BackupComplete failed to return a valid IVssAsync object")
 	}
 
-	if err = async.Wait(v.timeout); err != nil {
+	if err = doAsyncOperation(async, v.timeout); err != nil {
 		return fmt.Errorf("VSS_COMPLETE - Shadow copy creation failed: BackupComplete didn't finish properly, err: %s", err)
 	}
-
-	async.Release()
 
 	// TODO: GatherWriterStatus should request check writers status and fail execution if any writer is in a failed state
 	// After calling BackupComplete, requesters must call GatherWriterStatus to cause the writer session to be set to a completed state.
@@ -163,11 +188,9 @@ func (v *Snapshotter) Release() error {
 		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus failed to return a valid IVssAsync object")
 	}
 
-	if err = async.Wait(v.timeout); err != nil {
+	if err = doAsyncOperation(async, v.timeout); err != nil {
 		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus didn't finish properly, err: %s", err)
 	}
-
-	async.Release()
 
 	// The caller of GatherWriterStatus should also call FreeWriterStatus after receiving the status of each writer.
 	if err = v.components.FreeWriterStatus(); err != nil {
