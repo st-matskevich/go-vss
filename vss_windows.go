@@ -9,6 +9,8 @@ import (
 	"github.com/go-ole/go-ole"
 )
 
+const _MIN_VSS_TIMEOUT = 180 * 1000
+
 type Snapshotter struct {
 	components *IVssBackupComponents
 	timeout    int
@@ -19,8 +21,8 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 		return nil, fmt.Errorf("snapshotter is already in use")
 	}
 
-	if timeout < 180 {
-		timeout = 180
+	if timeout < _MIN_VSS_TIMEOUT {
+		timeout = _MIN_VSS_TIMEOUT
 	}
 
 	// Initalize COM Library
@@ -89,7 +91,6 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 
 	if err := async.Wait(timeout); err != nil {
 		return nil, fmt.Errorf("VSS_PREPARE - Shadow copy creation failed: PrepareForBackup didn't finish properly, err %s", err)
-
 	}
 	async.Release()
 
@@ -109,8 +110,6 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 	properties := VssSnapshotProperties{}
 
 	if err = vssBackupComponent.GetSnapshotProperties(snapshotID, &properties); err != nil {
-		vssBackupComponent.AbortBackup()
-		vssBackupComponent.Release()
 		return nil, fmt.Errorf("VSS_PROPERTIES - GetSnapshotProperties, err: %s", err)
 	}
 	details := SnapshotDetails{}

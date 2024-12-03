@@ -1,11 +1,10 @@
+//go:build windows
 // +build windows
 
 package vss
 
 import (
-	"fmt"
 	"syscall"
-	"time"
 	"unsafe"
 
 	ole "github.com/go-ole/go-ole"
@@ -32,34 +31,34 @@ func (vssAsync *IVssAsync) getVTable() *IVssAsyncVTable {
 
 // Will wait for a method the given amount of seconds before throwing an timeout error.
 // If the method completes before the timeout nil will be returned.
-func (async *IVssAsync) Wait(seconds int) error {
-	startTime := time.Now().Unix()
-	for {
-		// Start waiting for one second
-		code, _, _ := syscall.Syscall(async.getVTable().wait, 2, uintptr(unsafe.Pointer(async)), uintptr(1000), 0)
-		if err := CreateVSSError("IVssAsync.Wait", code); err != nil {
-			async.Cancel()
-			return err
-		}
-
-		var status int32
-		code, _, _ = syscall.Syscall(async.getVTable().queryStatus, 3, uintptr(unsafe.Pointer(async)), uintptr(unsafe.Pointer(&status)), 0)
-		if err := CreateVSSError("IVssAsync.QueryStatus", code); err != nil {
-			async.Cancel()
-			return err
-		}
-		if HRESULT(status) == VSS_S_ASYNC_FINISHED {
-			return nil
-		} else if HRESULT(status) == VSS_S_ASYNC_CANCELLED {
-			return CreateVSSError("IVssAsync.QueryStatus() returned cancelled", code)
-		}
-
-		// Passed timeout
-		currentTime := time.Now().Unix()
-		if currentTime-startTime > int64(seconds) {
-			return fmt.Errorf("operation exceeded the timeout time of %d seconds", code)
-		}
+func (async *IVssAsync) Wait(miliseconds int) error {
+	code, _, _ := syscall.Syscall(async.getVTable().wait, 2, uintptr(unsafe.Pointer(async)), uintptr(miliseconds), 0)
+	if err := CreateVSSError("IVssAsync.Wait", code); err != nil {
+		async.Cancel()
+		return err
 	}
+
+	var status int32
+	code, _, _ = syscall.Syscall(async.getVTable().queryStatus, 3, uintptr(unsafe.Pointer(async)), uintptr(unsafe.Pointer(&status)), 0)
+	if err := CreateVSSError("IVssAsync.QueryStatus", code); err != nil {
+		async.Cancel()
+		return err
+	}
+
+	if HRESULT(status) == VSS_S_ASYNC_CANCELLED {
+		return CreateVSSError("IVssAsync.QueryStatus() returned cancelled status", uintptr(status))
+	}
+
+	if HRESULT(status) == VSS_S_ASYNC_PENDING {
+		async.Cancel()
+		return CreateVSSError("IVssAsync.QueryStatus() returned pending status", uintptr(status))
+	}
+
+	if HRESULT(status) != VSS_S_ASYNC_FINISHED {
+		return CreateVSSError("IVssAsync.QueryStatus() returned bad status", uintptr(status))
+	}
+
+	return nil
 }
 
 func (async *IVssAsync) Cancel() error {
