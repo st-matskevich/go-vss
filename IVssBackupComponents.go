@@ -175,7 +175,7 @@ func (vss *IVssBackupComponents) GatherWriterStatus() (*IVssAsync, error) {
 	}
 }
 
-// The GatherWriterStatus method prompts each writer to send a status message.
+// The FreeWriterStatus method frees system resources allocated during the call to IVssBackupComponents::GatherWriterStatus.
 func (vss *IVssBackupComponents) FreeWriterStatus() error {
 	code, _, _ := syscall.Syscall(vss.getVTable().freeWriterStatus, 1, uintptr(unsafe.Pointer(vss)), 0, 0)
 	return CreateVSSError("IVssBackupComponents.FreeWriterStatus", code)
