@@ -16,6 +16,6 @@ build_win64:
 	docker image rm vss_windows_image_64
 
 build:
-	CGO_ENABLED="1" \
+	CGO_ENABLED="0" \
 	GOOS="windows" \
     go build -o bin/ cmd/example/*
