@@ -12,8 +12,7 @@ RUN go mod download
 COPY / /go/src/project/vss/
 
 # Compile for Windows64
-RUN CGO_ENABLED="1" \
+RUN CGO_ENABLED="0" \
     GOARCH="amd64"\
     GOOS="windows"\
-    CC="x86_64-w64-mingw32-gcc"\
     go build -o /go/bin/vss.exe cmd/example/*

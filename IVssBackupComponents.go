@@ -4,7 +4,6 @@
 package vss
 
 import (
-	"C"
 	"fmt"
 	"runtime"
 	"syscall"
