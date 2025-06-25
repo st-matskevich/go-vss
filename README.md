@@ -1,5 +1,5 @@
-# Golang VSS module
-Windows API bindings for the `Volume Shadow Copy Service` in Golang for 32 and 64-bit systems. Enables the user to duplicate entire drives during runtime without any file access issues. The API bindings are accompanied by a simple CLI tool that creates and symlinks Shadow Copies of a given drive.
+# Golang VSS CGO-free module
+Windows API bindings for the `Volume Shadow Copy Service` in Golang for 32 and 64-bit systems. Enables the user to duplicate entire drives during runtime without any file access issues. The API bindings are accompanied by a simple CLI tool that creates and symlinks Shadow Copies of a given drive. Uses syscalls and go-ole to avoid CGo.
 ## Build
 You can either import the vss API bindings into your project or use the CLI application. The CLI application can be built with the following command:
 
@@ -13,8 +13,6 @@ Regular build on Windows:
 ```shell
 make build
 ```
-
-NOTE: When building you need to set the `CGO_ENABLED` environment variable to `1` and the `GOOS` environment variable to `windows`. The `GOARCH` environment variable should be set to `386` or `amd64` depending on the system you are building for.
 
 ## Usage
 ```sh
