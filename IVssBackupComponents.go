@@ -158,6 +158,12 @@ func (vss *IVssBackupComponents) GatherWriterMetadata() (*IVssAsync, error) {
 	}
 }
 
+// The FreeWriterMetadata method frees system resources allocated when IVssBackupComponents::GatherWriterMetadata was called.
+func (vss *IVssBackupComponents) FreeWriterMetadata() error {
+	code, _, _ := syscall.Syscall(vss.getVTable().freeWriterMetadata, 1, uintptr(unsafe.Pointer(vss)), 0, 0)
+	return CreateVSSError("IVssBackupComponents.FreeWriterMetadata", code)
+}
+
 // The GatherWriterStatus method prompts each writer to send a status message.
 func (vss *IVssBackupComponents) GatherWriterStatus() (*IVssAsync, error) {
 	var unknown *ole.IUnknown

@@ -94,6 +94,11 @@ func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata didn't finish properly, err: %s", err)
 	}
 
+	// As far as metadata is not checked or exposed it can be freed right away
+	if err = v.components.FreeWriterMetadata(); err != nil {
+		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterMetadata, err: %s", err)
+	}
+
 	if isSupported, err := v.components.IsVolumeSupported(drive); err != nil {
 		return nil, fmt.Errorf("VSS_VOLUME_SUPPORT - snapshots are not supported for drive %s, err: %s", drive, err)
 	} else if !isSupported {
@@ -165,40 +170,41 @@ func (v *Snapshotter) Release() error {
 	if v.components == nil {
 		return nil
 	}
+	defer func() {
+		v.components.Release()
+		v.components = nil
+	}()
 
 	var async *IVssAsync
 	var err error
 
 	if async, err = v.components.BackupComplete(); err != nil {
-		return fmt.Errorf("VSS_COMPLETE - Shadow copy creation failed: BackupComplete, err: %s", err)
+		return fmt.Errorf("VSS_COMPLETE - Shadow copy release failed: BackupComplete, err: %s", err)
 	} else if async == nil {
-		return fmt.Errorf("VSS_COMPLETE - Shadow copy creation failed: BackupComplete failed to return a valid IVssAsync object")
+		return fmt.Errorf("VSS_COMPLETE - Shadow copy release failed: BackupComplete failed to return a valid IVssAsync object")
 	}
 
 	if err = doAsyncOperation(async, v.timeout); err != nil {
-		return fmt.Errorf("VSS_COMPLETE - Shadow copy creation failed: BackupComplete didn't finish properly, err: %s", err)
+		return fmt.Errorf("VSS_COMPLETE - Shadow copy release failed: BackupComplete didn't finish properly, err: %s", err)
 	}
 
 	// TODO: GatherWriterStatus should request check writers status and fail execution if any writer is in a failed state
 	// After calling BackupComplete, requesters must call GatherWriterStatus to cause the writer session to be set to a completed state.
 	// This is only necessary on Windows Server 2008 with Service Pack 2 (SP2) and earlier.
 	if async, err = v.components.GatherWriterStatus(); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus, err: %s", err)
+		return fmt.Errorf("VSS_GATHER - Shadow copy release failed: GatherWriterStatus, err: %s", err)
 	} else if async == nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus failed to return a valid IVssAsync object")
+		return fmt.Errorf("VSS_GATHER - Shadow copy release failed: GatherWriterStatus failed to return a valid IVssAsync object")
 	}
 
 	if err = doAsyncOperation(async, v.timeout); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterStatus didn't finish properly, err: %s", err)
+		return fmt.Errorf("VSS_GATHER - Shadow copy release failed: GatherWriterStatus didn't finish properly, err: %s", err)
 	}
 
 	// The caller of GatherWriterStatus should also call FreeWriterStatus after receiving the status of each writer.
 	if err = v.components.FreeWriterStatus(); err != nil {
-		return fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterStatus, err: %s", err)
+		return fmt.Errorf("VSS_GATHER - Shadow copy release failed: FreeWriterStatus, err: %s", err)
 	}
-
-	v.components.Release()
-	v.components = nil
 
 	return nil
 }
