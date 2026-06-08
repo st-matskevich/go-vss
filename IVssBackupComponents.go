@@ -108,7 +108,7 @@ func LoadAndInitVSS() (*IVssBackupComponents, error) {
 		return nil, fmt.Errorf("VSS_CREATE - Failed to create the VSS backup component")
 	}
 	if err := vssBackupComponent.InitializeForBackup(); err != nil {
-		return nil, fmt.Errorf("VSS_INIT - Shadow copy creation failed: InitializeForBackup, err: %s", err)
+		return nil, fmt.Errorf("VSS_INIT - Shadow copy creation failed: InitializeForBackup, err: %w", err)
 	}
 	return vssBackupComponent, nil
 }
@@ -156,6 +156,12 @@ func (vss *IVssBackupComponents) GatherWriterMetadata() (*IVssAsync, error) {
 		iVssAsync := (*IVssAsync)(unsafe.Pointer(comInterface))
 		return iVssAsync, CreateVSSError("IVssBackupComponents.GatherWriterMetadata", code)
 	}
+}
+
+// The FreeWriterMetadata method frees system resources allocated when IVssBackupComponents::GatherWriterMetadata was called.
+func (vss *IVssBackupComponents) FreeWriterMetadata() error {
+	code, _, _ := syscall.Syscall(vss.getVTable().freeWriterMetadata, 1, uintptr(unsafe.Pointer(vss)), 0, 0)
+	return CreateVSSError("IVssBackupComponents.FreeWriterMetadata", code)
 }
 
 // The GatherWriterStatus method prompts each writer to send a status message.
