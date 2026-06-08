@@ -108,7 +108,7 @@ func LoadAndInitVSS() (*IVssBackupComponents, error) {
 		return nil, fmt.Errorf("VSS_CREATE - Failed to create the VSS backup component")
 	}
 	if err := vssBackupComponent.InitializeForBackup(); err != nil {
-		return nil, fmt.Errorf("VSS_INIT - Shadow copy creation failed: InitializeForBackup, err: %s", err)
+		return nil, fmt.Errorf("VSS_INIT - Shadow copy creation failed: InitializeForBackup, err: %w", err)
 	}
 	return vssBackupComponent, nil
 }

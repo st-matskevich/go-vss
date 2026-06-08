@@ -161,7 +161,7 @@ type VssError struct {
 }
 
 func (err *VssError) Error() string {
-	return fmt.Sprintf("VSS error: %s: %s (%#x)", err.text, err.hresult.String(), err.hresult)
+	return fmt.Sprintf("VSS error: %s: %s (%#x)", err.text, err.hresult.String(), uint(err.hresult))
 }
 
 func createVssError(text string, hresult HRESULT) error {
