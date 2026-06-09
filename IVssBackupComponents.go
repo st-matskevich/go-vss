@@ -215,6 +215,10 @@ func (vss *IVssBackupComponents) IsVolumeSupported(drive string) (bool, error) {
 	if runtime.GOARCH == "386" {
 		id := (*[4]uintptr)(unsafe.Pointer(ole.IID_NULL))
 		code, _, _ = syscall.Syscall9(vss.getVTable().isVolumeSupported, 7, uintptr(unsafe.Pointer(vss)), id[0], id[1], id[2], id[3], uintptr(unsafe.Pointer(volumeNamePointer)), uintptr(unsafe.Pointer(&isSupported)), 0, 0)
+	} else if runtime.GOARCH == "arm64" {
+		// arm64 passes the 16-byte GUID by value in two registers
+		id := (*[2]uintptr)(unsafe.Pointer(ole.IID_NULL))
+		code, _, _ = syscall.Syscall6(vss.getVTable().isVolumeSupported, 5, uintptr(unsafe.Pointer(vss)), id[0], id[1], uintptr(unsafe.Pointer(volumeNamePointer)), uintptr(unsafe.Pointer(&isSupported)), 0)
 	} else {
 		code, _, _ = syscall.Syscall6(vss.getVTable().isVolumeSupported, 4, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(ole.IID_NULL)), uintptr(unsafe.Pointer(volumeNamePointer)), uintptr(unsafe.Pointer(&isSupported)), 0, 0)
 	}
@@ -233,6 +237,10 @@ func (vss *IVssBackupComponents) AddToSnapshotSet(drive string, snapshotID *ole.
 	volumeName := syscall.StringToUTF16Ptr(drive)
 	if runtime.GOARCH == "386" {
 		code, _, _ = syscall.Syscall9(vss.getVTable().addToSnapshotSet, 7, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(volumeName)), 0, 0, 0, 0, uintptr(unsafe.Pointer(snapshotID)), 0, 0)
+	} else if runtime.GOARCH == "arm64" {
+		// arm64 passes the 16-byte GUID by value in two registers
+		id := (*[2]uintptr)(unsafe.Pointer(ole.IID_NULL))
+		code, _, _ = syscall.Syscall6(vss.getVTable().addToSnapshotSet, 5, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(volumeName)), id[0], id[1], uintptr(unsafe.Pointer(snapshotID)), 0)
 	} else {
 		code, _, _ = syscall.Syscall6(vss.getVTable().addToSnapshotSet, 4, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(volumeName)), uintptr(unsafe.Pointer(ole.IID_NULL)), uintptr(unsafe.Pointer(snapshotID)), 0, 0)
 	}
@@ -299,6 +307,10 @@ func (vss *IVssBackupComponents) GetSnapshotProperties(snapshotSetID ole.GUID, p
 		address := VSS_GUID(uint(uintptr(unsafe.Pointer(&snapshotSetID))))
 		ad_1, ad_2, ad_3, ad_4 := address.Value()
 		code, _, _ = syscall.Syscall6(vss.getVTable().getSnapshotProperties, 6, uintptr(unsafe.Pointer(vss)), ad_1, ad_2, ad_3, ad_4, uintptr(unsafe.Pointer(properties)))
+	} else if runtime.GOARCH == "arm64" {
+		// arm64 passes the 16-byte GUID by value in two registers
+		id := (*[2]uintptr)(unsafe.Pointer(&snapshotSetID))
+		code, _, _ = syscall.Syscall6(vss.getVTable().getSnapshotProperties, 4, uintptr(unsafe.Pointer(vss)), id[0], id[1], uintptr(unsafe.Pointer(properties)), 0, 0)
 	} else {
 		code, _, _ = syscall.Syscall(vss.getVTable().getSnapshotProperties, 3, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&snapshotSetID)), uintptr(unsafe.Pointer(properties)))
 	}
@@ -317,6 +329,10 @@ func (vss *IVssBackupComponents) DeleteSnapshots(snapshotID ole.GUID) (ole.GUID,
 		address := VSS_GUID(uint(uintptr(unsafe.Pointer(&snapshotID))))
 		ad_1, ad_2, ad_3, ad_4 := address.Value()
 		code, _, _ = syscall.Syscall9(vss.getVTable().deleteSnapshots, 9, uintptr(unsafe.Pointer(vss)), ad_1, ad_2, ad_3, ad_4, uintptr(VSS_OBJECT_SNAPSHOT), uintptr(1), uintptr(unsafe.Pointer(&deleted)), uintptr(unsafe.Pointer(&deletedGUID)))
+	} else if runtime.GOARCH == "arm64" {
+		// arm64 passes the 16-byte GUID by value in two registers
+		id := (*[2]uintptr)(unsafe.Pointer(&snapshotID))
+		code, _, _ = syscall.Syscall9(vss.getVTable().deleteSnapshots, 7, uintptr(unsafe.Pointer(vss)), id[0], id[1], uintptr(VSS_OBJECT_SNAPSHOT), uintptr(1), uintptr(unsafe.Pointer(&deleted)), uintptr(unsafe.Pointer(&deletedGUID)), 0, 0)
 	} else {
 		code, _, _ = syscall.Syscall6(vss.getVTable().deleteSnapshots, 6, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&snapshotID)), uintptr(VSS_OBJECT_SNAPSHOT), uintptr(1), uintptr(unsafe.Pointer(&deleted)), uintptr(unsafe.Pointer(&deletedGUID)))
 	}
