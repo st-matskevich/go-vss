@@ -1,6 +1,0 @@
-bin/
-.gitignore
-.dockerignore
-Makefile
-*.md
-Dockerfile.*
