@@ -2,18 +2,22 @@ setup:
 	mkdir -p bin
 
 build_win32:
-	docker build -t vss_windows_image_32 -f Dockerfile.win32 --progress=plain . && \
-	docker run --name "vss_windows_container_32" vss_windows_image_32 && \
-	docker cp vss_windows_container_32:/go/bin/vss.exe ./bin/vss_x86_32.exe && \
-	docker rm vss_windows_container_32 && \
-	docker image rm vss_windows_image_32
+	CGO_ENABLED="0" \
+	GOOS="windows" \
+	GOARCH="386" \
+	go build -o bin/vss_x86_32.exe cmd/example/*
 
 build_win64:
-	docker build -t vss_windows_image_64 -f Dockerfile.win64 --progress=plain . && \
-	docker run --name "vss_windows_container_64" vss_windows_image_64 && \
-	docker cp vss_windows_container_64:/go/bin/vss.exe ./bin/vss_x86_64.exe && \
-	docker rm vss_windows_container_64 && \
-	docker image rm vss_windows_image_64
+	CGO_ENABLED="0" \
+	GOOS="windows" \
+	GOARCH="amd64" \
+	go build -o bin/vss_x86_64.exe cmd/example/*
+
+build_arm64:
+	CGO_ENABLED="0" \
+	GOOS="windows" \
+	GOARCH="arm64" \
+	go build -o bin/vss_arm64.exe cmd/example/*
 
 build:
 	CGO_ENABLED="0" \
