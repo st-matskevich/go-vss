@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-	"unsafe"
 )
 
 //NOTE: Microsoft Documentation can be found here: https://docs.microsoft.com/en-us/windows/win32/api/vss/ne-vss-vss_snapshot_context
@@ -103,15 +102,6 @@ func (state VSS_SNAPSHOT_STATE) String() string {
 	return fmt.Sprintf("UNKNOWN VSS_SNAPSHOT_STATE Error Code: %d", state)
 }
 
-type VSS_GUID uint
-
-func (guid VSS_GUID) Value() (uintptr, uintptr, uintptr, uintptr) {
-	return uintptr(*(*uint32)(unsafe.Pointer(uintptr(guid)))),
-		uintptr(*(*uint32)(unsafe.Pointer(uintptr(guid + 4)))),
-		uintptr(*(*uint32)(unsafe.Pointer(uintptr(guid + 8)))),
-		uintptr(*(*uint32)(unsafe.Pointer(uintptr(guid + 12))))
-}
-
 type Snapshot struct {
 	Id               string
 	Drive            string
@@ -177,7 +167,7 @@ func (d SnapshotDetails) Validate() error {
 }
 
 type ISnapshotter interface {
-	CreateSnapshot(drive string, timeout int, force bool) (*Snapshot, error)
+	CreateSnapshot(drive string, timeout int, opts ...SnapshotterOption) (*Snapshot, error)
 	Details(id string) (*Snapshot, error)
 	DeleteSnapshot(id string) error
 }

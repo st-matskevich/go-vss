@@ -9,6 +9,7 @@ const (
 	E_ACCESSDENIED                                  HRESULT = 0x80070005
 	E_OUTOFMEMORY                                   HRESULT = 0x8007000E
 	E_INVALIDARG                                    HRESULT = 0x80070057
+	RPC_E_TOO_LATE                                  HRESULT = 0x80010119
 	VSS_E_BAD_STATE                                 HRESULT = 0x80042301
 	VSS_E_UNEXPECTED                                HRESULT = 0x80042302
 	VSS_E_PROVIDER_ALREADY_REGISTERED               HRESULT = 0x80042303
@@ -77,12 +78,13 @@ const (
 
 var errorToString = map[HRESULT]string{
 	S_OK:                                            "S_OK",
-	E_ACCESSDENIED:                                  "E_ACCESSDENIED",
-	E_OUTOFMEMORY:                                   "E_OUTOFMEMORY",
-	E_INVALIDARG:                                    "E_INVALIDARG",
-	VSS_S_ASYNC_PENDING:                             "The asynchronous operation is pending.",
-	VSS_S_ASYNC_FINISHED:                            "The asynchronous operation has completed.",
-	VSS_S_ASYNC_CANCELLED:                           "The asynchronous operation has been cancelled.",
+	E_ACCESSDENIED:                                  "E_ACCESSDENIED - Access is denied.",
+	E_OUTOFMEMORY:                                   "E_OUTOFMEMORY - Ran out of memory.",
+	E_INVALIDARG:                                    "E_INVALIDARG - The parameter is incorrect.",
+	RPC_E_TOO_LATE:                                  "RPC_E_TOO_LATE - CoInitializeSecurity has already been called for this process.",
+	VSS_S_ASYNC_PENDING:                             "VSS_S_ASYNC_PENDING - The asynchronous operation is pending.",
+	VSS_S_ASYNC_FINISHED:                            "VSS_S_ASYNC_FINISHED - The asynchronous operation has completed.",
+	VSS_S_ASYNC_CANCELLED:                           "VSS_S_ASYNC_CANCELLED - The asynchronous operation has been cancelled.",
 	VSS_E_BAD_STATE:                                 "VSS_E_BAD_STATE - A function call was made when the object was in an incorrect state. This indicates that Microsoft's VSS framework and/or perhaps some of the VSS writers are in a bad state.",
 	VSS_E_UNEXPECTED:                                "VSS_E_UNEXPECTED - A volume shadow copy service (VSS) component encountered an unexpected error.",
 	VSS_E_PROVIDER_ALREADY_REGISTERED:               "VSS_E_PROVIDER_ALREADY_REGISTERED - The volume shadow copy provider is already registered in the system.",

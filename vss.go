@@ -9,7 +9,7 @@ import (
 
 type Snapshotter struct{}
 
-func (v *Snapshotter) CreateSnapshot(drive string, bootable bool, timeout int) (*Snapshot, error) {
+func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Option) (*Snapshot, error) {
 	return nil, errors.ErrUnsupported
 }
 
