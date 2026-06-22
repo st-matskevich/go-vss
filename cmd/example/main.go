@@ -11,8 +11,8 @@ import (
 var (
 	drive       = flag.String("D", "", "Drive letter to copy (example: C:\\)")
 	symlinkPath = flag.String("S", "", "Path of symlink folder")
-	bootable    = flag.Bool("b", false, "Created shapshot can be exported as a bootable volume")
-	comSecurity = flag.Bool("s", false, "Initialize COM security so VSS writers call back succeeds")
+	bootable    = flag.Bool("bootable", false, "Created snapshot can be exported as a bootable volume")
+	comSecurity = flag.Bool("comsec", false, "Initialize COM security so VSS writers call back succeeds")
 	timeout     = flag.Int("timeout", 180, "Snapshot creation timeout in seconds (min 180)")
 )
 
