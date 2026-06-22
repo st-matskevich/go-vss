@@ -302,9 +302,8 @@ func (vss *IVssBackupComponents) DoSnapshotSet() (*IVssAsync, error) {
 func (vss *IVssBackupComponents) GetSnapshotProperties(snapshotSetID ole.GUID, properties *VssSnapshotProperties) error {
 	var code uintptr
 	if runtime.GOARCH == "386" {
-		address := VSS_GUID(uint(uintptr(unsafe.Pointer(&snapshotSetID))))
-		ad_1, ad_2, ad_3, ad_4 := address.Value()
-		code, _, _ = syscall.Syscall6(vss.getVTable().getSnapshotProperties, 6, uintptr(unsafe.Pointer(vss)), ad_1, ad_2, ad_3, ad_4, uintptr(unsafe.Pointer(properties)))
+		id := (*[4]uintptr)(unsafe.Pointer(&snapshotSetID))
+		code, _, _ = syscall.Syscall6(vss.getVTable().getSnapshotProperties, 6, uintptr(unsafe.Pointer(vss)), id[0], id[1], id[2], id[3], uintptr(unsafe.Pointer(properties)))
 	} else if runtime.GOARCH == "arm64" {
 		id := (*[2]uintptr)(unsafe.Pointer(&snapshotSetID))
 		code, _, _ = syscall.Syscall6(vss.getVTable().getSnapshotProperties, 4, uintptr(unsafe.Pointer(vss)), id[0], id[1], uintptr(unsafe.Pointer(properties)), 0, 0)
@@ -323,9 +322,8 @@ func (vss *IVssBackupComponents) DeleteSnapshots(snapshotID ole.GUID) (ole.GUID,
 	var code uintptr
 
 	if runtime.GOARCH == "386" {
-		address := VSS_GUID(uint(uintptr(unsafe.Pointer(&snapshotID))))
-		ad_1, ad_2, ad_3, ad_4 := address.Value()
-		code, _, _ = syscall.Syscall9(vss.getVTable().deleteSnapshots, 9, uintptr(unsafe.Pointer(vss)), ad_1, ad_2, ad_3, ad_4, uintptr(VSS_OBJECT_SNAPSHOT), uintptr(1), uintptr(unsafe.Pointer(&deleted)), uintptr(unsafe.Pointer(&deletedGUID)))
+		id := (*[4]uintptr)(unsafe.Pointer(&snapshotID))
+		code, _, _ = syscall.Syscall9(vss.getVTable().deleteSnapshots, 9, uintptr(unsafe.Pointer(vss)), id[0], id[1], id[2], id[3], uintptr(VSS_OBJECT_SNAPSHOT), uintptr(1), uintptr(unsafe.Pointer(&deleted)), uintptr(unsafe.Pointer(&deletedGUID)))
 	} else if runtime.GOARCH == "arm64" {
 		id := (*[2]uintptr)(unsafe.Pointer(&snapshotID))
 		code, _, _ = syscall.Syscall9(vss.getVTable().deleteSnapshots, 7, uintptr(unsafe.Pointer(vss)), id[0], id[1], uintptr(VSS_OBJECT_SNAPSHOT), uintptr(1), uintptr(unsafe.Pointer(&deleted)), uintptr(unsafe.Pointer(&deletedGUID)), 0, 0)

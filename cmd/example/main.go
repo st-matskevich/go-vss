@@ -12,6 +12,7 @@ var (
 	drive       = flag.String("D", "", "Drive letter to copy (example: C:\\)")
 	symlinkPath = flag.String("S", "", "Path of symlink folder")
 	bootable    = flag.Bool("b", false, "Created shapshot can be exported as a bootable volume")
+	comSecurity = flag.Bool("s", false, "Initialize COM security so VSS writers call back succeeds")
 	timeout     = flag.Int("timeout", 180, "Snapshot creation timeout in seconds (min 180)")
 )
 
@@ -21,8 +22,16 @@ func main() {
 	checkUsage(flag.NArg())
 	validate()
 
+	opts := []vss.SnapshotterOption{}
+	if *bootable {
+		opts = append(opts, vss.WithBootable())
+	}
+	if *comSecurity {
+		opts = append(opts, vss.WithCOMSecurity())
+	}
+
 	Snapshotter := vss.Snapshotter{}
-	snapshot, err := Snapshotter.CreateSnapshot(*drive, *bootable, *timeout)
+	snapshot, err := Snapshotter.CreateSnapshot(*drive, *timeout, opts...)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
