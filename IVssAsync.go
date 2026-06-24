@@ -50,6 +50,15 @@ func (async *IVssAsync) QueryStatus() (HRESULT, error) {
 	return HRESULT(status), nil
 }
 
+// WaitRaw calls IVssAsync::Wait and returns the raw HRESULT.
+// Unlike Wait, it does not convert non-zero results to Go errors,
+// allowing the caller to distinguish timeout (S_OK with PENDING status)
+// from actual failures.
+func (async *IVssAsync) WaitRaw(miliseconds int) uintptr {
+	code, _, _ := syscall.Syscall(async.getVTable().wait, 2, uintptr(unsafe.Pointer(async)), uintptr(miliseconds), 0)
+	return code
+}
+
 func (async *IVssAsync) Cancel() error {
 	code, _, _ := syscall.Syscall(async.getVTable().cancel, 1, uintptr(unsafe.Pointer(async)), 0, 0)
 	return CreateVSSError("IVssAsync.cancel", code)

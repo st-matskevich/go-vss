@@ -5,6 +5,8 @@ package vss
 
 import (
 	"fmt"
+	"runtime"
+	"time"
 
 	"github.com/go-ole/go-ole"
 )
@@ -36,29 +38,56 @@ func doAsyncOperation(async *IVssAsync, timeout int) error {
 		async.Release()
 	}()
 
-	err := async.Wait(timeout)
-	if err != nil {
-		return err
+	// Use IVssAsync::Wait as the primary blocking mechanism.
+	hr := async.WaitRaw(timeout)
+
+	// Check status regardless of Wait result.
+	status, statusErr := async.QueryStatus()
+
+	if hr == 0 && statusErr == nil && status == VSS_S_ASYNC_FINISHED {
+		return nil
 	}
 
-	status, err := async.QueryStatus()
-	if err != nil {
-		return err
+	if statusErr == nil && status == VSS_S_ASYNC_FINISHED {
+		return nil
 	}
-
-	if status == VSS_S_ASYNC_CANCELLED {
+	if statusErr == nil && status == VSS_S_ASYNC_CANCELLED {
 		return fmt.Errorf("async operation was cancelled")
 	}
-
-	if status == VSS_S_ASYNC_PENDING {
-		return fmt.Errorf("async operation is pending")
+	if statusErr != nil {
+		return statusErr
 	}
-
-	if status != VSS_S_ASYNC_FINISHED {
+	if status != VSS_S_ASYNC_PENDING {
 		return fmt.Errorf("async operation returned bad status - 0x%x", status)
 	}
 
-	return nil
+	// IVssAsync::Wait returned but the operation is still pending.
+	// This happens when the Wait timeout is reached before the operation
+	// completes (e.g. GatherWriterMetadata can take longer than the
+	// timeout when a VSS writer's callback is slow to complete).
+	// Poll QueryStatus until the operation finishes or a second timeout
+	// window elapses.
+	deadline := time.Now().Add(time.Duration(timeout) * time.Millisecond)
+	for {
+		time.Sleep(100 * time.Millisecond)
+
+		status, err := async.QueryStatus()
+		if err != nil {
+			return err
+		}
+		switch {
+		case status == VSS_S_ASYNC_FINISHED:
+			return nil
+		case status == VSS_S_ASYNC_CANCELLED:
+			return fmt.Errorf("async operation was cancelled")
+		case status != VSS_S_ASYNC_PENDING:
+			return fmt.Errorf("async operation returned bad status - 0x%x", status)
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("async operation timed out")
+		}
+	}
 }
 
 func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...SnapshotterOption) (s *Snapshot, rerr error) {
@@ -72,8 +101,16 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 		timeout = _MIN_VSS_TIMEOUT
 	}
 
-	// Initalize COM Library
-	ole.CoInitialize(0)
+	// Pin this goroutine to the current OS thread for the lifetime of COM
+	// operations. COM apartment state is per-thread; without this, the Go
+	// scheduler could migrate the goroutine to a different OS thread between
+	// syscalls, breaking COM invariants.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	// Initialise COM in MTA mode. Microsoft's VSS documentation requires
+	// requestors to use COINIT_MULTITHREADED for IVssBackupComponents.
+	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
 	defer ole.CoUninitialize()
 
 	if o.initCOMSecurity {
