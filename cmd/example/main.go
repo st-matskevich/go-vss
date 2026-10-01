@@ -13,6 +13,7 @@ var (
 	symlinkPath = flag.String("S", "", "Path of symlink folder")
 	bootable    = flag.Bool("bootable", false, "Created snapshot can be exported as a bootable volume")
 	comSecurity = flag.Bool("comsec", false, "Initialize COM security so VSS writers call back succeeds")
+	sysProvider = flag.Bool("sysprov", false, "Use the system provider instead of letting VSS pick one")
 	timeout     = flag.Int("timeout", 180, "Snapshot creation timeout in seconds (min 180)")
 )
 
@@ -28,6 +29,9 @@ func main() {
 	}
 	if *comSecurity {
 		opts = append(opts, vss.WithCOMSecurity())
+	}
+	if *sysProvider {
+		opts = append(opts, vss.WithSystemProvider())
 	}
 
 	Snapshotter := vss.Snapshotter{}

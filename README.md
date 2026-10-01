@@ -29,6 +29,8 @@ usage:  vss [options]
         Created snapshot can be exported as a bootable volume
   -comsec
         Initialize COM security so VSS writers call back succeeds
+  -sysprov
+        Use the system provider instead of letting VSS pick one
   -timeout int
         Snapshot creation timeout in seconds (min 180) (default 180)
 ```
