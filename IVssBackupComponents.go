@@ -203,7 +203,8 @@ func (vss *IVssBackupComponents) BackupComplete() (*IVssAsync, error) {
 }
 
 // The IsVolumeSupported method determines whether the specified provider supports shadow copies on the specified volume or remote file share.
-func (vss *IVssBackupComponents) IsVolumeSupported(drive string) (bool, error) {
+// A zero providerID (GUID_NULL) checks whether any provider supports it.
+func (vss *IVssBackupComponents) IsVolumeSupported(providerID ole.GUID, drive string) (bool, error) {
 	var isSupported uint32
 	var code uintptr
 
@@ -213,13 +214,13 @@ func (vss *IVssBackupComponents) IsVolumeSupported(drive string) (bool, error) {
 	}
 
 	if runtime.GOARCH == "386" {
-		id := (*[4]uintptr)(unsafe.Pointer(ole.IID_NULL))
+		id := (*[4]uintptr)(unsafe.Pointer(&providerID))
 		code, _, _ = syscall.Syscall9(vss.getVTable().isVolumeSupported, 7, uintptr(unsafe.Pointer(vss)), id[0], id[1], id[2], id[3], uintptr(unsafe.Pointer(volumeNamePointer)), uintptr(unsafe.Pointer(&isSupported)), 0, 0)
 	} else if runtime.GOARCH == "arm64" {
-		id := (*[2]uintptr)(unsafe.Pointer(ole.IID_NULL))
+		id := (*[2]uintptr)(unsafe.Pointer(&providerID))
 		code, _, _ = syscall.Syscall6(vss.getVTable().isVolumeSupported, 5, uintptr(unsafe.Pointer(vss)), id[0], id[1], uintptr(unsafe.Pointer(volumeNamePointer)), uintptr(unsafe.Pointer(&isSupported)), 0)
 	} else {
-		code, _, _ = syscall.Syscall6(vss.getVTable().isVolumeSupported, 4, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(ole.IID_NULL)), uintptr(unsafe.Pointer(volumeNamePointer)), uintptr(unsafe.Pointer(&isSupported)), 0, 0)
+		code, _, _ = syscall.Syscall6(vss.getVTable().isVolumeSupported, 4, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&providerID)), uintptr(unsafe.Pointer(volumeNamePointer)), uintptr(unsafe.Pointer(&isSupported)), 0, 0)
 	}
 	return isSupported != 0, CreateVSSError("IVssBackupComponents.IsVolumeSupported", code)
 }
@@ -231,16 +232,18 @@ func (vss *IVssBackupComponents) StartSnapshotSet(snapshotID *ole.GUID) error {
 }
 
 // The AddToSnapshotSet method adds an original volume or original remote file share to the shadow copy set.
-func (vss *IVssBackupComponents) AddToSnapshotSet(drive string, snapshotID *ole.GUID) error {
+// A zero providerID (GUID_NULL) lets VSS choose the provider.
+func (vss *IVssBackupComponents) AddToSnapshotSet(drive string, providerID ole.GUID, snapshotID *ole.GUID) error {
 	var code uintptr
 	volumeName := syscall.StringToUTF16Ptr(drive)
 	if runtime.GOARCH == "386" {
-		code, _, _ = syscall.Syscall9(vss.getVTable().addToSnapshotSet, 7, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(volumeName)), 0, 0, 0, 0, uintptr(unsafe.Pointer(snapshotID)), 0, 0)
+		id := (*[4]uintptr)(unsafe.Pointer(&providerID))
+		code, _, _ = syscall.Syscall9(vss.getVTable().addToSnapshotSet, 7, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(volumeName)), id[0], id[1], id[2], id[3], uintptr(unsafe.Pointer(snapshotID)), 0, 0)
 	} else if runtime.GOARCH == "arm64" {
-		id := (*[2]uintptr)(unsafe.Pointer(ole.IID_NULL))
+		id := (*[2]uintptr)(unsafe.Pointer(&providerID))
 		code, _, _ = syscall.Syscall6(vss.getVTable().addToSnapshotSet, 5, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(volumeName)), id[0], id[1], uintptr(unsafe.Pointer(snapshotID)), 0)
 	} else {
-		code, _, _ = syscall.Syscall6(vss.getVTable().addToSnapshotSet, 4, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(volumeName)), uintptr(unsafe.Pointer(ole.IID_NULL)), uintptr(unsafe.Pointer(snapshotID)), 0, 0)
+		code, _, _ = syscall.Syscall6(vss.getVTable().addToSnapshotSet, 4, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(volumeName)), uintptr(unsafe.Pointer(&providerID)), uintptr(unsafe.Pointer(snapshotID)), 0, 0)
 	}
 	return CreateVSSError("IVssBackupComponents.AddToSnapshotSet", code)
 }

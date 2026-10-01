@@ -11,6 +11,9 @@ import (
 
 const _MIN_VSS_TIMEOUT = 180 * 1000
 
+// Microsoft Software Shadow Copy provider 1.0, the system provider that ships with Windows
+var _VSS_SYSTEM_PROVIDER_ID = *ole.NewGUID("{b5946137-7b9f-4925-af80-51abd60b20d5}")
+
 // COM security parameters passed to CoInitializeSecurity by WithCOMSecurity.
 // A NULL security descriptor together with EOAC_NONE allows all callers, so that
 // VSS writers can call back into this (requester) process; PKT_PRIVACY keeps
@@ -129,7 +132,13 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterMetadata, err: %w", err)
 	}
 
-	if isSupported, err := v.components.IsVolumeSupported(drive); err != nil {
+	// A zero provider ID (GUID_NULL) lets VSS pick the provider
+	var providerID ole.GUID
+	if o.systemProvider {
+		providerID = _VSS_SYSTEM_PROVIDER_ID
+	}
+
+	if isSupported, err := v.components.IsVolumeSupported(providerID, drive); err != nil {
 		return nil, fmt.Errorf("VSS_VOLUME_SUPPORT - snapshots are not supported for drive %s, err: %w", drive, err)
 	} else if !isSupported {
 		return nil, fmt.Errorf("VSS_VOLUME_SUPPORT - snapshots are not supported for drive %s, err: %w", drive, err)
@@ -142,7 +151,7 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 		return nil, fmt.Errorf("VSS_START - Shadow copy creation failed: StartSnapshotSet, err %w", err)
 	}
 
-	if err = v.components.AddToSnapshotSet(drive, &snapshotID); err != nil {
+	if err = v.components.AddToSnapshotSet(drive, providerID, &snapshotID); err != nil {
 		return nil, fmt.Errorf("VSS_ADD - Shadow copy creation failed: AddToSnapshotSet, err: %w", err)
 	}
 
