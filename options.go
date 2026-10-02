@@ -6,6 +6,7 @@ type SnapshotterOption func(*snapshotterOptions)
 type snapshotterOptions struct {
 	bootable        bool
 	initCOMSecurity bool
+	systemProvider  bool
 }
 
 func collectOptions(opts []SnapshotterOption) snapshotterOptions {
@@ -42,4 +43,15 @@ func WithBootable() SnapshotterOption {
 // https://learn.microsoft.com/en-us/windows/win32/vss/security-considerations-for-requestors
 func WithCOMSecurity() SnapshotterOption {
 	return func(o *snapshotterOptions) { o.initCOMSecurity = true }
+}
+
+// WithSystemProvider creates the snapshot with the system provider (Microsoft
+// Software Shadow Copy provider 1.0) instead of letting VSS pick one.
+//
+// Left to pick, VSS prefers any hardware or software provider over the system
+// provider. Inside Hyper-V guests that is the Hyper-V IC Software Shadow Copy
+// Provider, and when it can't serve an in-guest backup AddToSnapshotSet fails
+// with VSS_E_UNEXPECTED_PROVIDER_ERROR.
+func WithSystemProvider() SnapshotterOption {
+	return func(o *snapshotterOptions) { o.systemProvider = true }
 }
