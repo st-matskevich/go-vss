@@ -29,6 +29,8 @@ usage:  vss [options]
         Created snapshot can be exported as a bootable volume
   -comsec
         Initialize COM security so VSS writers call back succeeds
+  -nosqlwriter
+        Leave the SQL Server writer out of the snapshot
   -sysprov
         Use the system provider instead of letting VSS pick one
   -timeout int
