@@ -14,6 +14,9 @@ const _MIN_VSS_TIMEOUT = 180 * 1000
 // Microsoft Software Shadow Copy provider 1.0, the system provider that ships with Windows
 var _VSS_SYSTEM_PROVIDER_ID = *ole.NewGUID("{b5946137-7b9f-4925-af80-51abd60b20d5}")
 
+// SqlServerWriter, the VSS writer that ships with SQL Server
+var _VSS_SQL_SERVER_WRITER_ID = *ole.NewGUID("{a65faa63-5ea8-4ebc-9dbd-a0c4db26912a}")
+
 // COM security parameters passed to CoInitializeSecurity by WithCOMSecurity.
 // A NULL security descriptor together with EOAC_NONE allows all callers, so that
 // VSS writers can call back into this (requester) process; PKT_PRIVACY keeps
@@ -112,6 +115,13 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 
 	if err := v.components.SetBackupState(false, o.bootable, VSS_BT_COPY, false); err != nil {
 		return nil, err
+	}
+
+	if o.noSQLWriter {
+		// Writers can be disabled only before GatherWriterMetadata
+		if err := v.components.DisableWriterClasses([]ole.GUID{_VSS_SQL_SERVER_WRITER_ID}); err != nil {
+			return nil, fmt.Errorf("VSS_WRITERS - Shadow copy creation failed: DisableWriterClasses, err: %w", err)
+		}
 	}
 
 	var async *IVssAsync

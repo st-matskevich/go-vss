@@ -69,7 +69,7 @@ type IVssBackupComponentsVTable struct {
 	getSnapshotProperties         uintptr
 	query                         uintptr
 	isVolumeSupported             uintptr
-	// disableWriterClasses          uintptr
+	disableWriterClasses          uintptr
 	// enableWriterClasses           uintptr
 	// disableWriterInstances        uintptr
 	// exposeSnapshot                uintptr
@@ -223,6 +223,17 @@ func (vss *IVssBackupComponents) IsVolumeSupported(providerID ole.GUID, drive st
 		code, _, _ = syscall.Syscall6(vss.getVTable().isVolumeSupported, 4, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&providerID)), uintptr(unsafe.Pointer(volumeNamePointer)), uintptr(unsafe.Pointer(&isSupported)), 0, 0)
 	}
 	return isSupported != 0, CreateVSSError("IVssBackupComponents.IsVolumeSupported", code)
+}
+
+// The DisableWriterClasses method prevents the given classes of writers from receiving any events.
+// It has an effect only when called before GatherWriterMetadata.
+func (vss *IVssBackupComponents) DisableWriterClasses(writerClassIDs []ole.GUID) error {
+	if len(writerClassIDs) == 0 {
+		return nil
+	}
+
+	code, _, _ := syscall.Syscall(vss.getVTable().disableWriterClasses, 3, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&writerClassIDs[0])), uintptr(len(writerClassIDs)))
+	return CreateVSSError("IVssBackupComponents.DisableWriterClasses", code)
 }
 
 // The StartSnapshotSet method creates a new, empty shadow copy set.

@@ -7,6 +7,7 @@ type snapshotterOptions struct {
 	bootable        bool
 	initCOMSecurity bool
 	systemProvider  bool
+	noSQLWriter     bool
 }
 
 func collectOptions(opts []SnapshotterOption) snapshotterOptions {
@@ -54,4 +55,15 @@ func WithCOMSecurity() SnapshotterOption {
 // with VSS_E_UNEXPECTED_PROVIDER_ERROR.
 func WithSystemProvider() SnapshotterOption {
 	return func(o *snapshotterOptions) { o.systemProvider = true }
+}
+
+// WithoutSQLWriter creates the snapshot without the SQL Server writer
+// (SqlServerWriter). The database files are still in the snapshot.
+//
+// Taking part, the writer freezes the I/O of the databases on the volume. When
+// a database also has files on a volume outside the snapshot set, the writer
+// rejects the snapshot with VSS_E_WRITERERROR_INCONSISTENTSNAPSHOT and is left
+// in a failed state.
+func WithoutSQLWriter() SnapshotterOption {
+	return func(o *snapshotterOptions) { o.noSQLWriter = true }
 }
