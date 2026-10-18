@@ -6,6 +6,7 @@ type HRESULT uint
 
 const (
 	S_OK                                            HRESULT = 0x00000000
+	S_FALSE                                         HRESULT = 0x00000001
 	E_ACCESSDENIED                                  HRESULT = 0x80070005
 	E_OUTOFMEMORY                                   HRESULT = 0x8007000E
 	E_INVALIDARG                                    HRESULT = 0x80070057
@@ -78,6 +79,7 @@ const (
 
 var errorToString = map[HRESULT]string{
 	S_OK:                                            "S_OK",
+	S_FALSE:                                         "S_FALSE",
 	E_ACCESSDENIED:                                  "E_ACCESSDENIED - Access is denied.",
 	E_OUTOFMEMORY:                                   "E_OUTOFMEMORY - Ran out of memory.",
 	E_INVALIDARG:                                    "E_INVALIDARG - The parameter is incorrect.",

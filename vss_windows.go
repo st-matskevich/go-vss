@@ -64,6 +64,29 @@ func doAsyncOperation(async *IVssAsync, timeout int) error {
 	return nil
 }
 
+func findSnapshotDetails(components *IVssBackupComponents, snapshotID ole.GUID) (SnapshotDetails, error) {
+	snapshots, err := components.Query()
+	if err != nil {
+		return SnapshotDetails{}, err
+	}
+	defer snapshots.Release()
+
+	for {
+		var object VssObjectProperties
+		if fetched, err := snapshots.Next(&object); err != nil {
+			return SnapshotDetails{}, err
+		} else if !fetched {
+			return SnapshotDetails{}, fmt.Errorf("snapshot %s was not found", snapshotID.String())
+		}
+
+		details, err := ParseProperties(object.snapshot)
+		freeSnapshotProperties(&object.snapshot)
+		if details.Id == snapshotID.String() {
+			return details, err
+		}
+	}
+}
+
 func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...SnapshotterOption) (s *Snapshot, rerr error) {
 	if v.components != nil {
 		return nil, fmt.Errorf("snapshotter is already in use")
@@ -187,6 +210,13 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 	details, err = ParseProperties(properties)
 	if err != nil {
 		return nil, fmt.Errorf("VSS_PROPERTIES - ParseProperties, err: %w", err)
+	}
+
+	// The QEMU guest agent provider answers GetSnapshotProperties for any snapshot with empty properties
+	if details.DeviceObject == "" {
+		if details, err = findSnapshotDetails(vssBackupComponent, snapshotID); err != nil {
+			return nil, fmt.Errorf("VSS_PROPERTIES - Query, err: %w", err)
+		}
 	}
 
 	deviceObjectPath := details.DeviceObject + `\`

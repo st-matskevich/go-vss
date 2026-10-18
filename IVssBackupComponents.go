@@ -316,6 +316,23 @@ func (vss *IVssBackupComponents) GetSnapshotProperties(snapshotSetID ole.GUID, p
 	return CreateVSSError("IVssBackupComponents.GetSnapshotProperties", code)
 }
 
+// The Query method returns the completed shadow copies in the current context. Microsoft allows only GUID_NULL and VSS_OBJECT_NONE for the queried object.
+func (vss *IVssBackupComponents) Query() (*IVssEnumObject, error) {
+	var queriedObjectID ole.GUID
+	var snapshots *IVssEnumObject
+	var code uintptr
+	if runtime.GOARCH == "386" {
+		id := (*[4]uintptr)(unsafe.Pointer(&queriedObjectID))
+		code, _, _ = syscall.Syscall9(vss.getVTable().query, 8, uintptr(unsafe.Pointer(vss)), id[0], id[1], id[2], id[3], uintptr(VSS_OBJECT_NONE), uintptr(VSS_OBJECT_SNAPSHOT), uintptr(unsafe.Pointer(&snapshots)), 0)
+	} else if runtime.GOARCH == "arm64" {
+		id := (*[2]uintptr)(unsafe.Pointer(&queriedObjectID))
+		code, _, _ = syscall.Syscall6(vss.getVTable().query, 6, uintptr(unsafe.Pointer(vss)), id[0], id[1], uintptr(VSS_OBJECT_NONE), uintptr(VSS_OBJECT_SNAPSHOT), uintptr(unsafe.Pointer(&snapshots)))
+	} else {
+		code, _, _ = syscall.Syscall6(vss.getVTable().query, 5, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&queriedObjectID)), uintptr(VSS_OBJECT_NONE), uintptr(VSS_OBJECT_SNAPSHOT), uintptr(unsafe.Pointer(&snapshots)), 0)
+	}
+	return snapshots, CreateVSSError("IVssBackupComponents.Query", code)
+}
+
 // The DeleteSnapshots method deletes one or more shadow copies or a shadow copy set.
 func (vss *IVssBackupComponents) DeleteSnapshots(snapshotID ole.GUID) (ole.GUID, bool, error) {
 	VSS_OBJECT_SNAPSHOT := 3
