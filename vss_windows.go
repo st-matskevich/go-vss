@@ -200,23 +200,10 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 		return nil, fmt.Errorf("VSS_SNAPSHOT - Shadow copy creation failed: DoSnapshotSet didn't finish properly, err: %w", err)
 	}
 
-	// Gather Properties
-	properties := VssSnapshotProperties{}
-
-	if err = vssBackupComponent.GetSnapshotProperties(snapshotID, &properties); err != nil {
-		return nil, fmt.Errorf("VSS_PROPERTIES - GetSnapshotProperties, err: %w", err)
-	}
-	details := SnapshotDetails{}
-	details, err = ParseProperties(properties)
+	// Gather Properties with Query, because the QEMU guest agent provider answers GetSnapshotProperties for any snapshot with empty properties
+	details, err := findSnapshotDetails(vssBackupComponent, snapshotID)
 	if err != nil {
-		return nil, fmt.Errorf("VSS_PROPERTIES - ParseProperties, err: %w", err)
-	}
-
-	// The QEMU guest agent provider answers GetSnapshotProperties for any snapshot with empty properties
-	if details.DeviceObject == "" {
-		if details, err = findSnapshotDetails(vssBackupComponent, snapshotID); err != nil {
-			return nil, fmt.Errorf("VSS_PROPERTIES - Query, err: %w", err)
-		}
+		return nil, fmt.Errorf("VSS_PROPERTIES - Query, err: %w", err)
 	}
 
 	deviceObjectPath := details.DeviceObject + `\`
