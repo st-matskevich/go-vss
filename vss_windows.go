@@ -200,7 +200,7 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 		return nil, fmt.Errorf("VSS_SNAPSHOT - Shadow copy creation failed: DoSnapshotSet didn't finish properly, err: %w", err)
 	}
 
-	// Gather Properties with Query, because the QEMU guest agent provider answers GetSnapshotProperties for any snapshot with empty properties
+	// Gather Properties
 	details, err := findSnapshotDetails(vssBackupComponent, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("VSS_PROPERTIES - Query, err: %w", err)
