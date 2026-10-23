@@ -91,7 +91,7 @@ func doAsyncOperation(async *IVssAsync, timeout int) error {
 	}
 
 	if status != VSS_S_ASYNC_FINISHED {
-		return fmt.Errorf("async operation returned bad status - 0x%x", status)
+		return fmt.Errorf("async operation returned bad status - %s", status)
 	}
 
 	return nil
