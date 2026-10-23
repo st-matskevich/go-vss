@@ -103,6 +103,8 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 		if rerr != nil {
 			v.components.AbortBackup()
 			v.components.Release()
+			// Drop the released object so the snapshotter can be used again
+			v.components = nil
 		}
 	}()
 
