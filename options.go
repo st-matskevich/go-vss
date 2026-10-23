@@ -70,13 +70,13 @@ func WithoutWriterClasses(classIDs ...ole.GUID) SnapshotterOption {
 	return func(o *snapshotterOptions) { o.withoutWriterClasses = append(o.withoutWriterClasses, classIDs...) }
 }
 
-// WithWriterMetadata calls inspect with the metadata of the writers taking
-// part, after VSS gathers it and before the snapshot set is created. When
-// inspect returns an error, CreateSnapshot stops and returns it wrapped.
+// WithWriterMetadata lets the caller look at the writers before the snapshot
+// is taken. CreateSnapshot passes each writer's metadata to inspect, and stops
+// with inspect's error if it returns one.
 //
-// No writer can be left out at that point, because DisableWriterClasses has no
-// effect after GatherWriterMetadata. To leave a writer out, stop and call
-// CreateSnapshot again with WithoutWriterClasses.
+// It's too late then to leave a writer out: VSS allows that only before it
+// gathers the metadata. To leave one out, return an error from inspect and
+// call CreateSnapshot again with WithoutWriterClasses.
 func WithWriterMetadata(inspect func(writers []WriterMetadata) error) SnapshotterOption {
 	return func(o *snapshotterOptions) { o.inspectWriters = inspect }
 }
