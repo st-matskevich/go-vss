@@ -1,13 +1,17 @@
 package vss
 
+import (
+	ole "github.com/go-ole/go-ole"
+)
+
 // SnapshotterOption configures optional behavior of Snapshotter.CreateSnapshot.
 type SnapshotterOption func(*snapshotterOptions)
 
 type snapshotterOptions struct {
-	bootable        bool
-	initCOMSecurity bool
-	systemProvider  bool
-	noSQLWriter     bool
+	bootable             bool
+	initCOMSecurity      bool
+	systemProvider       bool
+	withoutWriterClasses []ole.GUID
 }
 
 func collectOptions(opts []SnapshotterOption) snapshotterOptions {
@@ -57,13 +61,10 @@ func WithSystemProvider() SnapshotterOption {
 	return func(o *snapshotterOptions) { o.systemProvider = true }
 }
 
-// WithoutSQLWriter creates the snapshot without the SQL Server writer
-// (SqlServerWriter). The database files are still in the snapshot.
-//
-// Taking part, the writer freezes the I/O of the databases on the volume. When
-// a database also has files on a volume outside the snapshot set, the writer
-// rejects the snapshot with VSS_E_WRITERERROR_INCONSISTENTSNAPSHOT and is left
-// in a failed state.
-func WithoutSQLWriter() SnapshotterOption {
-	return func(o *snapshotterOptions) { o.noSQLWriter = true }
+// WithoutWriterClasses creates the snapshot without the writers of the given
+// classes. It calls DisableWriterClasses before GatherWriterMetadata, so those
+// writers receive no events for the snapshot. Their files are still in the
+// snapshot.
+func WithoutWriterClasses(classIDs ...ole.GUID) SnapshotterOption {
+	return func(o *snapshotterOptions) { o.withoutWriterClasses = append(o.withoutWriterClasses, classIDs...) }
 }

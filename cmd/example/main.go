@@ -14,7 +14,6 @@ var (
 	bootable    = flag.Bool("bootable", false, "Created snapshot can be exported as a bootable volume")
 	comSecurity = flag.Bool("comsec", false, "Initialize COM security so VSS writers call back succeeds")
 	sysProvider = flag.Bool("sysprov", false, "Use the system provider instead of letting VSS pick one")
-	noSQLWriter = flag.Bool("nosqlwriter", false, "Leave the SQL Server writer out of the snapshot")
 	timeout     = flag.Int("timeout", 180, "Snapshot creation timeout in seconds (min 180)")
 )
 
@@ -33,9 +32,6 @@ func main() {
 	}
 	if *sysProvider {
 		opts = append(opts, vss.WithSystemProvider())
-	}
-	if *noSQLWriter {
-		opts = append(opts, vss.WithoutSQLWriter())
 	}
 
 	Snapshotter := vss.Snapshotter{}
