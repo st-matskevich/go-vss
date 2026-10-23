@@ -1,12 +1,18 @@
 package vss
 
+import (
+	ole "github.com/go-ole/go-ole"
+)
+
 // SnapshotterOption configures optional behavior of Snapshotter.CreateSnapshot.
 type SnapshotterOption func(*snapshotterOptions)
 
 type snapshotterOptions struct {
-	bootable        bool
-	initCOMSecurity bool
-	systemProvider  bool
+	bootable             bool
+	initCOMSecurity      bool
+	systemProvider       bool
+	withoutWriterClasses []ole.GUID
+	inspectWriters       func([]WriterMetadata) error
 }
 
 func collectOptions(opts []SnapshotterOption) snapshotterOptions {
@@ -54,4 +60,23 @@ func WithCOMSecurity() SnapshotterOption {
 // with VSS_E_UNEXPECTED_PROVIDER_ERROR.
 func WithSystemProvider() SnapshotterOption {
 	return func(o *snapshotterOptions) { o.systemProvider = true }
+}
+
+// WithoutWriterClasses creates the snapshot without the writers of the given
+// classes. It calls DisableWriterClasses before GatherWriterMetadata, so those
+// writers receive no events for the snapshot. Their files are still in the
+// snapshot.
+func WithoutWriterClasses(classIDs ...ole.GUID) SnapshotterOption {
+	return func(o *snapshotterOptions) { o.withoutWriterClasses = append(o.withoutWriterClasses, classIDs...) }
+}
+
+// WithWriterMetadata lets the caller look at the writers before the snapshot
+// is taken. CreateSnapshot passes each writer's metadata to inspect, and stops
+// with inspect's error if it returns one.
+//
+// It's too late then to leave a writer out: VSS allows that only before it
+// gathers the metadata. To leave one out, return an error from inspect and
+// call CreateSnapshot again with WithoutWriterClasses.
+func WithWriterMetadata(inspect func(writers []WriterMetadata) error) SnapshotterOption {
+	return func(o *snapshotterOptions) { o.inspectWriters = inspect }
 }

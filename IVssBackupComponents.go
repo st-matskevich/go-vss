@@ -69,7 +69,7 @@ type IVssBackupComponentsVTable struct {
 	getSnapshotProperties         uintptr
 	query                         uintptr
 	isVolumeSupported             uintptr
-	// disableWriterClasses          uintptr
+	disableWriterClasses          uintptr
 	// enableWriterClasses           uintptr
 	// disableWriterInstances        uintptr
 	// exposeSnapshot                uintptr
@@ -158,6 +158,27 @@ func (vss *IVssBackupComponents) GatherWriterMetadata() (*IVssAsync, error) {
 	}
 }
 
+// The GetWriterMetadataCount method returns the number of writers whose metadata GatherWriterMetadata gathered.
+func (vss *IVssBackupComponents) GetWriterMetadataCount() (uint32, error) {
+	var count uint32
+	code, _, _ := syscall.Syscall(vss.getVTable().getWriterMetadataCount, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&count)), 0)
+	return count, CreateVSSError("IVssBackupComponents.GetWriterMetadataCount", code)
+}
+
+// The GetWriterMetadata method returns the metadata of a writer. The caller must release it.
+func (vss *IVssBackupComponents) GetWriterMetadata(index uint32) (*IVssExamineWriterMetadata, error) {
+	var instanceID ole.GUID
+	var metadata *IVssExamineWriterMetadata
+	code, _, _ := syscall.Syscall6(vss.getVTable().getWriterMetadata, 4, uintptr(unsafe.Pointer(vss)), uintptr(index), uintptr(unsafe.Pointer(&instanceID)), uintptr(unsafe.Pointer(&metadata)), 0, 0)
+	if err := CreateVSSError("IVssBackupComponents.GetWriterMetadata", code); err != nil {
+		return nil, err
+	}
+	if metadata == nil {
+		return nil, fmt.Errorf("IVssBackupComponents.GetWriterMetadata failed to return a valid IVssExamineWriterMetadata object")
+	}
+	return metadata, nil
+}
+
 // The FreeWriterMetadata method frees system resources allocated when IVssBackupComponents::GatherWriterMetadata was called.
 func (vss *IVssBackupComponents) FreeWriterMetadata() error {
 	code, _, _ := syscall.Syscall(vss.getVTable().freeWriterMetadata, 1, uintptr(unsafe.Pointer(vss)), 0, 0)
@@ -223,6 +244,17 @@ func (vss *IVssBackupComponents) IsVolumeSupported(providerID ole.GUID, drive st
 		code, _, _ = syscall.Syscall6(vss.getVTable().isVolumeSupported, 4, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&providerID)), uintptr(unsafe.Pointer(volumeNamePointer)), uintptr(unsafe.Pointer(&isSupported)), 0, 0)
 	}
 	return isSupported != 0, CreateVSSError("IVssBackupComponents.IsVolumeSupported", code)
+}
+
+// The DisableWriterClasses method prevents the given classes of writers from receiving any events.
+// It has an effect only when called before GatherWriterMetadata.
+func (vss *IVssBackupComponents) DisableWriterClasses(writerClassIDs []ole.GUID) error {
+	if len(writerClassIDs) == 0 {
+		return nil
+	}
+
+	code, _, _ := syscall.Syscall(vss.getVTable().disableWriterClasses, 3, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&writerClassIDs[0])), uintptr(len(writerClassIDs)))
+	return CreateVSSError("IVssBackupComponents.DisableWriterClasses", code)
 }
 
 // The StartSnapshotSet method creates a new, empty shadow copy set.
