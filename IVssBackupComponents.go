@@ -158,6 +158,27 @@ func (vss *IVssBackupComponents) GatherWriterMetadata() (*IVssAsync, error) {
 	}
 }
 
+// The GetWriterMetadataCount method returns the number of writers whose metadata GatherWriterMetadata gathered.
+func (vss *IVssBackupComponents) GetWriterMetadataCount() (uint32, error) {
+	var count uint32
+	code, _, _ := syscall.Syscall(vss.getVTable().getWriterMetadataCount, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&count)), 0)
+	return count, CreateVSSError("IVssBackupComponents.GetWriterMetadataCount", code)
+}
+
+// The GetWriterMetadata method returns the metadata of a writer. The caller must release it.
+func (vss *IVssBackupComponents) GetWriterMetadata(index uint32) (*IVssExamineWriterMetadata, error) {
+	var instanceID ole.GUID
+	var metadata *IVssExamineWriterMetadata
+	code, _, _ := syscall.Syscall6(vss.getVTable().getWriterMetadata, 4, uintptr(unsafe.Pointer(vss)), uintptr(index), uintptr(unsafe.Pointer(&instanceID)), uintptr(unsafe.Pointer(&metadata)), 0, 0)
+	if err := CreateVSSError("IVssBackupComponents.GetWriterMetadata", code); err != nil {
+		return nil, err
+	}
+	if metadata == nil {
+		return nil, fmt.Errorf("IVssBackupComponents.GetWriterMetadata failed to return a valid IVssExamineWriterMetadata object")
+	}
+	return metadata, nil
+}
+
 // The FreeWriterMetadata method frees system resources allocated when IVssBackupComponents::GatherWriterMetadata was called.
 func (vss *IVssBackupComponents) FreeWriterMetadata() error {
 	code, _, _ := syscall.Syscall(vss.getVTable().freeWriterMetadata, 1, uintptr(unsafe.Pointer(vss)), 0, 0)

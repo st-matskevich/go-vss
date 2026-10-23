@@ -134,7 +134,13 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata didn't finish properly, err: %w", err)
 	}
 
-	// As far as metadata is not checked or exposed it can be freed right away
+	if o.inspectWriters != nil {
+		if err := inspectWriterMetadata(v.components, o.inspectWriters); err != nil {
+			return nil, err
+		}
+	}
+
+	// The metadata is not needed past this point, so it can be freed right away
 	if err = v.components.FreeWriterMetadata(); err != nil {
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterMetadata, err: %w", err)
 	}

@@ -12,6 +12,7 @@ type snapshotterOptions struct {
 	initCOMSecurity      bool
 	systemProvider       bool
 	withoutWriterClasses []ole.GUID
+	inspectWriters       func([]WriterMetadata) error
 }
 
 func collectOptions(opts []SnapshotterOption) snapshotterOptions {
@@ -67,4 +68,15 @@ func WithSystemProvider() SnapshotterOption {
 // snapshot.
 func WithoutWriterClasses(classIDs ...ole.GUID) SnapshotterOption {
 	return func(o *snapshotterOptions) { o.withoutWriterClasses = append(o.withoutWriterClasses, classIDs...) }
+}
+
+// WithWriterMetadata calls inspect with the metadata of the writers taking
+// part, after VSS gathers it and before the snapshot set is created. When
+// inspect returns an error, CreateSnapshot stops and returns it wrapped.
+//
+// No writer can be left out at that point, because DisableWriterClasses has no
+// effect after GatherWriterMetadata. To leave a writer out, stop and call
+// CreateSnapshot again with WithoutWriterClasses.
+func WithWriterMetadata(inspect func(writers []WriterMetadata) error) SnapshotterOption {
+	return func(o *snapshotterOptions) { o.inspectWriters = inspect }
 }
