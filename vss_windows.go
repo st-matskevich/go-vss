@@ -5,6 +5,7 @@ package vss
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/go-ole/go-ole"
 )
@@ -33,6 +34,38 @@ type Snapshotter struct {
 	timeout    int
 }
 
+// withCOM initializes COM on the current thread and pins the goroutine to it; the returned func unpins and uninitializes.
+func withCOM() (func(), error) {
+	runtime.LockOSThread()
+
+	uninit := func() {
+		ole.CoUninitialize()
+		runtime.UnlockOSThread()
+	}
+
+	// go-ole reports any non-zero HRESULT as an error, so unwrap and inspect.
+	err := ole.CoInitialize(0)
+	if err == nil {
+		return uninit, nil // S_OK
+	}
+	oleErr, ok := err.(*ole.OleError)
+	if !ok {
+		runtime.UnlockOSThread()
+		return nil, err
+	}
+	switch HRESULT(oleErr.Code()) {
+	case S_FALSE:
+		// Already initialized on this thread; still balance our own call.
+		return uninit, nil
+	case RPC_E_CHANGED_MODE:
+		// Thread was initialized as MTA by someone else; usable, but the uninit is not ours.
+		return func() { runtime.UnlockOSThread() }, nil
+	default:
+		runtime.UnlockOSThread()
+		return nil, err
+	}
+}
+
 func doAsyncOperation(async *IVssAsync, timeout int) error {
 	defer func() {
 		async.Cancel()
@@ -58,7 +91,7 @@ func doAsyncOperation(async *IVssAsync, timeout int) error {
 	}
 
 	if status != VSS_S_ASYNC_FINISHED {
-		return fmt.Errorf("async operation returned bad status - 0x%x", status)
+		return fmt.Errorf("async operation returned bad status - %s", status)
 	}
 
 	return nil
@@ -99,8 +132,11 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 	}
 
 	// Initalize COM Library
-	ole.CoInitialize(0)
-	defer ole.CoUninitialize()
+	uninit, err := withCOM()
+	if err != nil {
+		return nil, fmt.Errorf("VSS_COM - Shadow copy creation failed: CoInitialize, err: %w", err)
+	}
+	defer uninit()
 
 	if o.initCOMSecurity {
 		// Allow VSS writers running under restricted service accounts (such as
@@ -226,13 +262,19 @@ func (v *Snapshotter) Release() error {
 	if v.components == nil {
 		return nil
 	}
+
+	uninit, err := withCOM()
+	if err != nil {
+		return fmt.Errorf("VSS_COM - Shadow copy release failed: CoInitialize, err: %w", err)
+	}
+	defer uninit()
+
 	defer func() {
 		v.components.Release()
 		v.components = nil
 	}()
 
 	var async *IVssAsync
-	var err error
 
 	if async, err = v.components.BackupComplete(); err != nil {
 		return fmt.Errorf("VSS_COMPLETE - Shadow copy release failed: BackupComplete, err: %w", err)

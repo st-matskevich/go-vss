@@ -10,6 +10,7 @@ const (
 	E_ACCESSDENIED                                  HRESULT = 0x80070005
 	E_OUTOFMEMORY                                   HRESULT = 0x8007000E
 	E_INVALIDARG                                    HRESULT = 0x80070057
+	RPC_E_CHANGED_MODE                              HRESULT = 0x80010106
 	RPC_E_TOO_LATE                                  HRESULT = 0x80010119
 	VSS_E_BAD_STATE                                 HRESULT = 0x80042301
 	VSS_E_UNEXPECTED                                HRESULT = 0x80042302
@@ -83,6 +84,7 @@ var errorToString = map[HRESULT]string{
 	E_ACCESSDENIED:                                  "E_ACCESSDENIED - Access is denied.",
 	E_OUTOFMEMORY:                                   "E_OUTOFMEMORY - Ran out of memory.",
 	E_INVALIDARG:                                    "E_INVALIDARG - The parameter is incorrect.",
+	RPC_E_CHANGED_MODE:                              "RPC_E_CHANGED_MODE - The thread was already initialized with a different concurrency model.",
 	RPC_E_TOO_LATE:                                  "RPC_E_TOO_LATE - CoInitializeSecurity has already been called for this process.",
 	VSS_S_ASYNC_PENDING:                             "VSS_S_ASYNC_PENDING - The asynchronous operation is pending.",
 	VSS_S_ASYNC_FINISHED:                            "VSS_S_ASYNC_FINISHED - The asynchronous operation has completed.",

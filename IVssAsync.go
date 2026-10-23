@@ -47,7 +47,7 @@ func (async *IVssAsync) QueryStatus() (HRESULT, error) {
 		return 0, err
 	}
 
-	return HRESULT(status), nil
+	return HRESULT(uint32(status)), nil
 }
 
 func (async *IVssAsync) Cancel() error {
