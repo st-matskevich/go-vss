@@ -16,9 +16,6 @@ import (
 const VSS_Create_VSS_BACKUP_COMPONENTS = "?CreateVssBackupComponents@@YAJPEAPEAVIVssBackupComponents@@@Z"
 const VSS_Create_VSS_BACKUP_COMPONENTS_386 = "?CreateVssBackupComponents@@YGJPAPAVIVssBackupComponents@@@Z"
 
-var UIID_IVSS_ASYNC = ole.NewGUID("{507C37B4-CF5B-4e95-B0AF-14EB9767467E}")
-var UUID_IVSS = ole.NewGUID("{665c1d5f-c218-414d-a05d-7fef5f9d5c86}")
-
 // The IVssBackupComponents interface is used by a requester to poll writers about file status and to run backup/restore operations.
 type IVssBackupComponents struct {
 	ole.IUnknown
@@ -77,15 +74,6 @@ type IVssBackupComponentsVTable struct {
 	// queryRevertStatus             uintptr
 }
 
-func createIVss(unknown *ole.IUnknown, iid *ole.GUID) *IVssBackupComponents {
-	if comInterface, err := queryInterface(unknown, iid); err != nil {
-		return nil
-	} else {
-		iVssBackupComponents := (*IVssBackupComponents)(unsafe.Pointer(comInterface))
-		return iVssBackupComponents
-	}
-}
-
 // Loads VssApi.dll and creates VssBackupComponents
 func LoadAndInitVSS() (*IVssBackupComponents, error) {
 	// Load DLL
@@ -95,34 +83,21 @@ func LoadAndInitVSS() (*IVssBackupComponents, error) {
 		procCreateVssBackupComponents = dllVssApi.NewProc(VSS_Create_VSS_BACKUP_COMPONENTS_386)
 	}
 
-	var unknown *ole.IUnknown
+	var components *IVssBackupComponents
 
-	if r, _, _ := procCreateVssBackupComponents.Call(uintptr(unsafe.Pointer(&unknown))); r == (uintptr)(E_ACCESSDENIED) {
+	if r, _, _ := procCreateVssBackupComponents.Call(uintptr(unsafe.Pointer(&components))); r == (uintptr)(E_ACCESSDENIED) {
 		return nil, fmt.Errorf("VSS_CREATE - Only administrators can create shadow copies")
 	} else if r != 0 {
 		return nil, fmt.Errorf("VSS_CREATE - Failed to create the VSS backup component: %d", r)
 	}
-
-	vssBackupComponent := createIVss(unknown, UUID_IVSS)
-	if vssBackupComponent == nil {
+	if components == nil {
 		return nil, fmt.Errorf("VSS_CREATE - Failed to create the VSS backup component")
 	}
-	if err := vssBackupComponent.InitializeForBackup(); err != nil {
+	if err := components.InitializeForBackup(); err != nil {
+		components.Release()
 		return nil, fmt.Errorf("VSS_INIT - Shadow copy creation failed: InitializeForBackup, err: %w", err)
 	}
-	return vssBackupComponent, nil
-}
-
-// queryInterface is a wrapper around the windows QueryInterface api.
-func queryInterface(oleIUnknown *ole.IUnknown, guid *ole.GUID) (*interface{}, error) {
-	var obj *interface{}
-	code, _, _ := syscall.Syscall(oleIUnknown.VTable().QueryInterface, 3,
-		uintptr(unsafe.Pointer(oleIUnknown)), uintptr(unsafe.Pointer(guid)),
-		uintptr(unsafe.Pointer(&obj)))
-	if code != 0 {
-		return nil, CreateVSSError("QueryInterface failed", code)
-	}
-	return obj, nil
+	return components, nil
 }
 
 // Returns pointer to IVssBackupComponentsVTable
@@ -144,18 +119,12 @@ func (vss *IVssBackupComponents) InitializeForBackup() error {
 
 // The GatherWriterMetadata method prompts each writer to send the metadata they have collected. The method will generate an Identify event to communicate with writers.
 func (vss *IVssBackupComponents) GatherWriterMetadata() (*IVssAsync, error) {
-	var unknown *ole.IUnknown
-	code, _, _ := syscall.Syscall(vss.getVTable().gatherWriterMetadata, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&unknown)), 0)
+	var async *IVssAsync
+	code, _, _ := syscall.Syscall(vss.getVTable().gatherWriterMetadata, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&async)), 0)
 	if code != 0 {
 		return nil, CreateVSSError("IVssBackupComponents.GatherWriterMetadata", code)
 	}
-
-	if comInterface, err := queryInterface(unknown, UIID_IVSS_ASYNC); err != nil {
-		return nil, CreateVSSError("IVssBackupComponents.GatherWriterMetadata", code)
-	} else {
-		iVssAsync := (*IVssAsync)(unsafe.Pointer(comInterface))
-		return iVssAsync, CreateVSSError("IVssBackupComponents.GatherWriterMetadata", code)
-	}
+	return async, nil
 }
 
 // The FreeWriterMetadata method frees system resources allocated when IVssBackupComponents::GatherWriterMetadata was called.
@@ -166,18 +135,12 @@ func (vss *IVssBackupComponents) FreeWriterMetadata() error {
 
 // The GatherWriterStatus method prompts each writer to send a status message.
 func (vss *IVssBackupComponents) GatherWriterStatus() (*IVssAsync, error) {
-	var unknown *ole.IUnknown
-	code, _, _ := syscall.Syscall(vss.getVTable().gatherWriterStatus, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&unknown)), 0)
+	var async *IVssAsync
+	code, _, _ := syscall.Syscall(vss.getVTable().gatherWriterStatus, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&async)), 0)
 	if code != 0 {
 		return nil, CreateVSSError("IVssBackupComponents.GatherWriterStatus", code)
 	}
-
-	if comInterface, err := queryInterface(unknown, UIID_IVSS_ASYNC); err != nil {
-		return nil, CreateVSSError("IVssBackupComponents.GatherWriterStatus", code)
-	} else {
-		iVssAsync := (*IVssAsync)(unsafe.Pointer(comInterface))
-		return iVssAsync, CreateVSSError("IVssBackupComponents.GatherWriterStatus", code)
-	}
+	return async, nil
 }
 
 // The FreeWriterStatus method frees system resources allocated during the call to IVssBackupComponents::GatherWriterStatus.
@@ -188,18 +151,12 @@ func (vss *IVssBackupComponents) FreeWriterStatus() error {
 
 // The BackupComplete method causes VSS to generate a BackupComplete event, which signals writers that the backup process has completed.
 func (vss *IVssBackupComponents) BackupComplete() (*IVssAsync, error) {
-	var unknown *ole.IUnknown
-	code, _, _ := syscall.Syscall(vss.getVTable().backupComplete, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&unknown)), 0)
+	var async *IVssAsync
+	code, _, _ := syscall.Syscall(vss.getVTable().backupComplete, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&async)), 0)
 	if code != 0 {
 		return nil, CreateVSSError("IVssBackupComponents.BackupComplete", code)
 	}
-
-	if comInterface, err := queryInterface(unknown, UIID_IVSS_ASYNC); err != nil {
-		return nil, CreateVSSError("IVssBackupComponents.BackupComplete", code)
-	} else {
-		iVssAsync := (*IVssAsync)(unsafe.Pointer(comInterface))
-		return iVssAsync, CreateVSSError("IVssBackupComponents.BackupComplete", code)
-	}
+	return async, nil
 }
 
 // The IsVolumeSupported method determines whether the specified provider supports shadow copies on the specified volume or remote file share.
@@ -273,32 +230,22 @@ func (vss *IVssBackupComponents) SetBackupState(selectComponents bool, backupBoo
 
 // The PrepareForBackup method will cause VSS to generate a PrepareForBackup event, signaling writers to prepare for an upcoming backup operation. This makes a requester's Backup Components Document available to writers.
 func (vss *IVssBackupComponents) PrepareForBackup() (*IVssAsync, error) {
-	var unknown *ole.IUnknown
-	code, _, _ := syscall.Syscall(vss.getVTable().prepareForBackup, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&unknown)), 0)
+	var async *IVssAsync
+	code, _, _ := syscall.Syscall(vss.getVTable().prepareForBackup, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&async)), 0)
 	if err := CreateVSSError("IVssBackupComponents.PrepareForBackup", code); err != nil {
 		return nil, err
 	}
-	if comInterface, err := queryInterface(unknown, UIID_IVSS_ASYNC); err != nil {
-		return nil, err
-	} else {
-		iVssAsync := (*IVssAsync)(unsafe.Pointer(comInterface))
-		return iVssAsync, CreateVSSError("IVssBackupComponents.PrepareForBackup", code)
-	}
+	return async, nil
 }
 
 // Commits all shadow copies in this set simultaneously.
 func (vss *IVssBackupComponents) DoSnapshotSet() (*IVssAsync, error) {
-	var unknown *ole.IUnknown
-	code, _, _ := syscall.Syscall(vss.getVTable().doSnapshotSet, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&unknown)), 0)
+	var async *IVssAsync
+	code, _, _ := syscall.Syscall(vss.getVTable().doSnapshotSet, 2, uintptr(unsafe.Pointer(vss)), uintptr(unsafe.Pointer(&async)), 0)
 	if err := CreateVSSError("IVssBackupComponents.DoSnapshotSet", code); err != nil {
 		return nil, err
 	}
-	if comInterface, err := queryInterface(unknown, UIID_IVSS_ASYNC); err != nil {
-		return nil, CreateVSSError("IVssBackupComponents.DoSnapshotSet", code)
-	} else {
-		iVssAsync := (*IVssAsync)(unsafe.Pointer(comInterface))
-		return iVssAsync, CreateVSSError("IVssBackupComponents.DoSnapshotSet", code)
-	}
+	return async, nil
 }
 
 // The GetSnapshotProperties method gets the properties of the specified shadow copy.
