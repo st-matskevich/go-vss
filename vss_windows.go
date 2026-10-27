@@ -162,6 +162,7 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 		if rerr != nil {
 			v.components.AbortBackup()
 			v.components.Release()
+			v.components = nil
 		}
 	}()
 
@@ -171,6 +172,11 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 
 	if err := v.components.SetBackupState(false, o.bootable, VSS_BT_COPY, false); err != nil {
 		return nil, err
+	}
+
+	// Writers can be disabled only before GatherWriterMetadata
+	if err := v.components.DisableWriterClasses(o.withoutWriterClasses); err != nil {
+		return nil, fmt.Errorf("VSS_WRITERS - Shadow copy creation failed: DisableWriterClasses, err: %w", err)
 	}
 
 	var async *IVssAsync
@@ -186,7 +192,13 @@ func (v *Snapshotter) CreateSnapshot(drive string, timeout int, opts ...Snapshot
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: GatherWriterMetadata didn't finish properly, err: %w", err)
 	}
 
-	// As far as metadata is not checked or exposed it can be freed right away
+	if o.inspectWriters != nil {
+		if err := inspectWriterMetadata(v.components, o.inspectWriters); err != nil {
+			return nil, err
+		}
+	}
+
+	// The metadata is not needed past this point, so it can be freed right away
 	if err = v.components.FreeWriterMetadata(); err != nil {
 		return nil, fmt.Errorf("VSS_GATHER - Shadow copy creation failed: FreeWriterMetadata, err: %w", err)
 	}
