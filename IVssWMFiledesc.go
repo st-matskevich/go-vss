@@ -52,9 +52,8 @@ func (f *IVssWMFiledesc) GetRecursive() (bool, error) {
 func (f *IVssWMFiledesc) getString(method uintptr, name string) (string, error) {
 	var value *uint16
 	code, _, _ := syscall.Syscall(method, 2, uintptr(unsafe.Pointer(f)), uintptr(unsafe.Pointer(&value)), 0)
-	result := takeBSTR(value)
 	if err := CreateVSSError(name, code); err != nil {
 		return "", err
 	}
-	return result, nil
+	return takeBSTR(value), nil
 }

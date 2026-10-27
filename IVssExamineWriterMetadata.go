@@ -43,7 +43,10 @@ func (m *IVssExamineWriterMetadata) GetIdentity() (instanceID, classID ole.GUID,
 	var bstrName *uint16
 	var usage, source uint32
 	code, _, _ := syscall.Syscall6(m.getVTable().getIdentity, 6, uintptr(unsafe.Pointer(m)), uintptr(unsafe.Pointer(&instanceID)), uintptr(unsafe.Pointer(&classID)), uintptr(unsafe.Pointer(&bstrName)), uintptr(unsafe.Pointer(&usage)), uintptr(unsafe.Pointer(&source)))
-	return instanceID, classID, takeBSTR(bstrName), CreateVSSError("IVssExamineWriterMetadata.GetIdentity", code)
+	if err = CreateVSSError("IVssExamineWriterMetadata.GetIdentity", code); err != nil {
+		return instanceID, classID, "", err
+	}
+	return instanceID, classID, takeBSTR(bstrName), nil
 }
 
 // The GetFileCounts method returns the number of include files, exclude files and components of the writer.
