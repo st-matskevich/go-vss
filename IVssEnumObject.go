@@ -29,6 +29,16 @@ type VssObjectProperties struct {
 	_          uint32 // On 386 the union is 4 bytes longer than VssSnapshotProperties is in Go
 }
 
+// Returns the ObjectType
+func (p *VssObjectProperties) GetObjectType() VssObjectType {
+	return VssObjectType(p.objectType)
+}
+
+// Returns the Snapshot member of the union, valid when the ObjectType is VSS_OBJECT_SNAPSHOT
+func (p *VssObjectProperties) GetSnapshot() *VssSnapshotProperties {
+	return &p.snapshot
+}
+
 // Returns pointer to IVssEnumObjectVTable
 func (enum *IVssEnumObject) getVTable() *IVssEnumObjectVTable {
 	return (*IVssEnumObjectVTable)(unsafe.Pointer(enum.RawVTable))
@@ -44,7 +54,8 @@ func (enum *IVssEnumObject) Next(object *VssObjectProperties) (bool, error) {
 	return fetched == 1, CreateVSSError("IVssEnumObject.Next", code)
 }
 
-// Frees the strings that VSS allocated for the snapshot properties
-func freeSnapshotProperties(properties *VssSnapshotProperties) {
+// The VssFreeSnapshotProperties function frees the strings that VSS allocated for the snapshot properties.
+// NOTE: Microsoft Documentation can be found here: https://learn.microsoft.com/en-us/windows/win32/api/vsbackup/nf-vsbackup-vssfreesnapshotproperties
+func VssFreeSnapshotProperties(properties *VssSnapshotProperties) {
 	syscall.NewLazyDLL("VssApi.dll").NewProc("VssFreeSnapshotProperties").Call(uintptr(unsafe.Pointer(properties)))
 }

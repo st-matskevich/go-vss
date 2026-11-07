@@ -112,8 +112,9 @@ func findSnapshotDetails(components *IVssBackupComponents, snapshotID ole.GUID) 
 			return SnapshotDetails{}, fmt.Errorf("snapshot %s was not found", snapshotID.String())
 		}
 
-		details, err := ParseProperties(object.snapshot)
-		freeSnapshotProperties(&object.snapshot)
+		snapshot := object.GetSnapshot()
+		details, err := ParseProperties(*snapshot)
+		VssFreeSnapshotProperties(snapshot)
 		if details.Id == snapshotID.String() {
 			return details, err
 		}
